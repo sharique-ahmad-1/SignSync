@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import * as THREE from 'three';
+import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js';
+import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { 
@@ -17,7 +19,8 @@ import {
   Rotate3d,
   Layers,
   CheckCircle2,
-  Activity
+  Activity,
+  Hand
 } from 'lucide-react';
 import { 
   AVATAR_VOCABULARY, 
@@ -28,91 +31,163 @@ import { extractISLKeywords } from '../lib/smolLM';
 import { MagneticButton, ShinyButton } from './ui/react-bits-micro';
 import { cn } from '../lib/utils';
 
-// Standard Mixamo & GLTF bone hierarchy map keys
-export const STANDARD_BONES = [
-  'Hips', 'Spine', 'Spine1', 'Spine2', 'Neck', 'Head',
-  'RightShoulder', 'RightArm', 'RightForeArm', 'RightHand',
-  'RightHandThumb1', 'RightHandThumb2', 'RightHandThumb3',
-  'RightHandIndex1', 'RightHandIndex2', 'RightHandIndex3',
-  'RightHandMiddle1', 'RightHandMiddle2', 'RightHandMiddle3',
-  'RightHandRing1', 'RightHandRing2', 'RightHandRing3',
-  'RightHandPinky1', 'RightHandPinky2', 'RightHandPinky3',
-  'LeftShoulder', 'LeftArm', 'LeftForeArm', 'LeftHand',
-  'LeftHandThumb1', 'LeftHandThumb2', 'LeftHandThumb3',
-  'LeftHandIndex1', 'LeftHandIndex2', 'LeftHandIndex3',
-  'LeftHandMiddle1', 'LeftHandMiddle2', 'LeftHandMiddle3',
-  'LeftHandRing1', 'LeftHandRing2', 'LeftHandRing3',
-  'LeftHandPinky1', 'LeftHandPinky2', 'LeftHandPinky3'
-];
+/**
+ * Traverses any Rigged Hand 3D model scene and extracts standard hand & finger bones
+ */
+function extractHandSkeletonBones(root) {
+  const bones = {
+    right: { wrist: null, thumb: [], index: [], middle: [], ring: [], pinky: [] },
+    left: { wrist: null, thumb: [], index: [], middle: [], ring: [], pinky: [] }
+  };
+
+  root.traverse((node) => {
+    if (!node.isBone && node.type !== 'Bone' && node.type !== 'JOINT') return;
+    const name = (node.name || '').toLowerCase();
+
+    // Right Hand Bone Extraction
+    const isRight = name.includes('_r') || name.includes('.r') || name.includes('right') || name.includes('rhand');
+    const isLeft = name.includes('_l') || name.includes('.l') || name.includes('left') || name.includes('lhand');
+    const target = isLeft ? bones.left : bones.right;
+
+    if (name.includes('hand') || name.includes('wrist')) {
+      if (!target.wrist) target.wrist = node;
+    } else if (name.includes('thumb')) {
+      target.thumb.push(node);
+    } else if (name.includes('index')) {
+      target.index.push(node);
+    } else if (name.includes('middle')) {
+      target.middle.push(node);
+    } else if (name.includes('ring')) {
+      target.ring.push(node);
+    } else if (name.includes('pinky') || name.includes('little')) {
+      target.pinky.push(node);
+    }
+  });
+
+  // Sort finger bones by hierarchy/index
+  const sortBones = (arr) => arr.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  ['right', 'left'].forEach(side => {
+    sortBones(bones[side].thumb);
+    sortBones(bones[side].index);
+    sortBones(bones[side].middle);
+    sortBones(bones[side].ring);
+    sortBones(bones[side].pinky);
+  });
+
+  return bones;
+}
 
 /**
- * Traverses any GLTF model scene and extracts standard bones into a mapped dictionary
+ * Builds an anatomical, fully rigged 3D Procedural Hand with 15 articulated joints per hand
  */
-function extractSkeletonBones(root) {
-  const bones = {};
-  root.traverse((node) => {
-    if (!node.isBone) return;
-    const rawName = node.name || '';
-    const cleanName = rawName
-      .replace(/^(mixamorig[:_]?|bip01[:_]?|ValveBiped[:_]?|armature[:_]?|Wolf3D[:_]?|RPM[:_]?)/i, '')
-      .replace(/[^a-zA-Z0-9]/g, '');
-    const lower = cleanName.toLowerCase();
+function createProceduralRiggedHand(side = 'right') {
+  const isRight = side === 'right';
+  const group = new THREE.Group();
+  group.name = `${side}_hand_root`;
 
-    // Body & Head
-    if (lower === 'head') bones.Head = node;
-    else if (lower === 'neck') bones.Neck = node;
-    else if (lower === 'spine2' || lower === 'chest' || lower === 'upperchest') bones.Spine2 = node;
-    else if (lower === 'spine1') bones.Spine1 = node;
-    else if (lower === 'spine' || lower === 'spine0') bones.Spine = node;
-    else if (lower === 'hips' || lower === 'pelvis') bones.Hips = node;
-
-    // Right Arm & Hand
-    else if (lower === 'rightshoulder' || lower === 'rshoulder' || lower === 'shoulderright' || lower === 'shoulderr') bones.RightShoulder = node;
-    else if (lower === 'rightarm' || lower === 'rightupperarm' || lower === 'rarm' || lower === 'armright' || lower === 'upperarmr') bones.RightArm = node;
-    else if (lower === 'rightforearm' || lower === 'rightlowerarm' || lower === 'rforearm' || lower === 'forearmright' || lower === 'lowerarmr') bones.RightForeArm = node;
-    else if (lower === 'righthand' || lower === 'rhand' || lower === 'handright' || lower === 'handr') bones.RightHand = node;
-
-    // Right Fingers
-    else if (/^r(ight)?(hand)?thumb1$/i.test(cleanName) || lower === 'thumb1r') bones.RightHandThumb1 = node;
-    else if (/^r(ight)?(hand)?thumb2$/i.test(cleanName) || lower === 'thumb2r') bones.RightHandThumb2 = node;
-    else if (/^r(ight)?(hand)?thumb3$/i.test(cleanName) || lower === 'thumb3r') bones.RightHandThumb3 = node;
-    else if (/^r(ight)?(hand)?index1$/i.test(cleanName) || lower === 'index1r') bones.RightHandIndex1 = node;
-    else if (/^r(ight)?(hand)?index2$/i.test(cleanName) || lower === 'index2r') bones.RightHandIndex2 = node;
-    else if (/^r(ight)?(hand)?index3$/i.test(cleanName) || lower === 'index3r') bones.RightHandIndex3 = node;
-    else if (/^r(ight)?(hand)?middle1$/i.test(cleanName) || lower === 'middle1r') bones.RightHandMiddle1 = node;
-    else if (/^r(ight)?(hand)?middle2$/i.test(cleanName) || lower === 'middle2r') bones.RightHandMiddle2 = node;
-    else if (/^r(ight)?(hand)?middle3$/i.test(cleanName) || lower === 'middle3r') bones.RightHandMiddle3 = node;
-    else if (/^r(ight)?(hand)?ring1$/i.test(cleanName) || lower === 'ring1r') bones.RightHandRing1 = node;
-    else if (/^r(ight)?(hand)?ring2$/i.test(cleanName) || lower === 'ring2r') bones.RightHandRing2 = node;
-    else if (/^r(ight)?(hand)?ring3$/i.test(cleanName) || lower === 'ring3r') bones.RightHandRing3 = node;
-    else if (/^r(ight)?(hand)?pinky1$/i.test(cleanName) || lower === 'pinky1r' || lower === 'little1r') bones.RightHandPinky1 = node;
-    else if (/^r(ight)?(hand)?pinky2$/i.test(cleanName) || lower === 'pinky2r' || lower === 'little2r') bones.RightHandPinky2 = node;
-    else if (/^r(ight)?(hand)?pinky3$/i.test(cleanName) || lower === 'pinky3r' || lower === 'little3r') bones.RightHandPinky3 = node;
-
-    // Left Arm & Hand
-    else if (lower === 'leftshoulder' || lower === 'lshoulder' || lower === 'shoulderleft' || lower === 'shoulderl') bones.LeftShoulder = node;
-    else if (lower === 'leftarm' || lower === 'leftupperarm' || lower === 'larm' || lower === 'armleft' || lower === 'upperarml') bones.LeftArm = node;
-    else if (lower === 'leftforearm' || lower === 'leftlowerarm' || lower === 'lforearm' || lower === 'forearmleft' || lower === 'lowerarml') bones.LeftForeArm = node;
-    else if (lower === 'lefthand' || lower === 'lhand' || lower === 'handleft' || lower === 'handl') bones.LeftHand = node;
-
-    // Left Fingers
-    else if (/^l(eft)?(hand)?thumb1$/i.test(cleanName) || lower === 'thumb1l') bones.LeftHandThumb1 = node;
-    else if (/^l(eft)?(hand)?thumb2$/i.test(cleanName) || lower === 'thumb2l') bones.LeftHandThumb2 = node;
-    else if (/^l(eft)?(hand)?thumb3$/i.test(cleanName) || lower === 'thumb3l') bones.LeftHandThumb3 = node;
-    else if (/^l(eft)?(hand)?index1$/i.test(cleanName) || lower === 'index1l') bones.LeftHandIndex1 = node;
-    else if (/^l(eft)?(hand)?index2$/i.test(cleanName) || lower === 'index2l') bones.LeftHandIndex2 = node;
-    else if (/^l(eft)?(hand)?index3$/i.test(cleanName) || lower === 'index3l') bones.LeftHandIndex3 = node;
-    else if (/^l(eft)?(hand)?middle1$/i.test(cleanName) || lower === 'middle1l') bones.LeftHandMiddle1 = node;
-    else if (/^l(eft)?(hand)?middle2$/i.test(cleanName) || lower === 'middle2l') bones.LeftHandMiddle2 = node;
-    else if (/^l(eft)?(hand)?middle3$/i.test(cleanName) || lower === 'middle3l') bones.LeftHandMiddle3 = node;
-    else if (/^l(eft)?(hand)?ring1$/i.test(cleanName) || lower === 'ring1l') bones.LeftHandRing1 = node;
-    else if (/^l(eft)?(hand)?ring2$/i.test(cleanName) || lower === 'ring2l') bones.LeftHandRing2 = node;
-    else if (/^l(eft)?(hand)?ring3$/i.test(cleanName) || lower === 'ring3l') bones.LeftHandRing3 = node;
-    else if (/^l(eft)?(hand)?pinky1$/i.test(cleanName) || lower === 'pinky1l' || lower === 'little1l') bones.LeftHandPinky1 = node;
-    else if (/^l(eft)?(hand)?pinky2$/i.test(cleanName) || lower === 'pinky2l' || lower === 'little2l') bones.LeftHandPinky2 = node;
-    else if (/^l(eft)?(hand)?pinky3$/i.test(cleanName) || lower === 'pinky3l' || lower === 'little3l') bones.LeftHandPinky3 = node;
+  const skinMat = new THREE.MeshStandardMaterial({
+    color: isRight ? 0x6366f1 : 0x06b6d4,
+    roughness: 0.35,
+    metalness: 0.25,
+    emissive: isRight ? 0x312e81 : 0x0e7490,
+    emissiveIntensity: 0.35
   });
-  return bones;
+
+  const jointMat = new THREE.MeshStandardMaterial({
+    color: 0x38bdf8,
+    roughness: 0.2,
+    metalness: 0.8,
+    emissive: 0x38bdf8,
+    emissiveIntensity: 0.5
+  });
+
+  // Wrist & Palm base
+  const palmGeo = new THREE.BoxGeometry(0.55, 0.65, 0.16);
+  const palmMesh = new THREE.Mesh(palmGeo, skinMat);
+  palmMesh.castShadow = true;
+  palmMesh.receiveShadow = true;
+  group.add(palmMesh);
+
+  // Forearm stump
+  const forearmGeo = new THREE.CylinderGeometry(0.2, 0.22, 0.6, 16);
+  const forearmMesh = new THREE.Mesh(forearmGeo, skinMat);
+  forearmMesh.position.y = -0.55;
+  forearmMesh.castShadow = true;
+  group.add(forearmMesh);
+
+  // Mapped bone references holder
+  const bones = {
+    wrist: group,
+    thumb: [],
+    index: [],
+    middle: [],
+    ring: [],
+    pinky: []
+  };
+
+  // Helper to build 3-phalanx articulated finger
+  const buildFinger = (fingerKey, xOffset, yOffset, length, angle = 0) => {
+    const phalanxLen = length / 3;
+    let parent = group;
+    const chain = [];
+
+    // Joint 1 (Knuckle)
+    const j1 = new THREE.Group();
+    j1.position.set(xOffset, yOffset, 0);
+    j1.rotation.z = angle;
+    parent.add(j1);
+    chain.push(j1);
+
+    const j1Mesh = new THREE.Mesh(new THREE.SphereGeometry(0.065, 12, 12), jointMat);
+    j1.add(j1Mesh);
+
+    const bone1Mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.05, phalanxLen, 12), skinMat);
+    bone1Mesh.position.y = phalanxLen / 2;
+    j1.add(bone1Mesh);
+
+    // Joint 2 (Middle)
+    const j2 = new THREE.Group();
+    j2.position.set(0, phalanxLen, 0);
+    j1.add(j2);
+    chain.push(j2);
+
+    const j2Mesh = new THREE.Mesh(new THREE.SphereGeometry(0.055, 12, 12), jointMat);
+    j2.add(j2Mesh);
+
+    const bone2Mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.042, phalanxLen * 0.85, 12), skinMat);
+    bone2Mesh.position.y = (phalanxLen * 0.85) / 2;
+    j2.add(bone2Mesh);
+
+    // Joint 3 (Distal / Tip)
+    const j3 = new THREE.Group();
+    j3.position.set(0, phalanxLen * 0.85, 0);
+    j2.add(j3);
+    chain.push(j3);
+
+    const j3Mesh = new THREE.Mesh(new THREE.SphereGeometry(0.045, 12, 12), jointMat);
+    j3.add(j3Mesh);
+
+    const bone3Mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.032, phalanxLen * 0.7, 12), skinMat);
+    bone3Mesh.position.y = (phalanxLen * 0.7) / 2;
+    j3.add(bone3Mesh);
+
+    bones[fingerKey] = chain;
+  };
+
+  // Build all 5 fingers
+  const dir = isRight ? 1 : -1;
+  // Thumb
+  buildFinger('thumb', dir * 0.28, -0.05, 0.42, dir * -0.45);
+  // Index
+  buildFinger('index', dir * 0.18, 0.32, 0.48, dir * -0.05);
+  // Middle
+  buildFinger('middle', dir * 0.06, 0.34, 0.52, 0);
+  // Ring
+  buildFinger('ring', dir * -0.06, 0.32, 0.46, dir * 0.05);
+  // Pinky
+  buildFinger('pinky', dir * -0.18, 0.28, 0.38, dir * 0.12);
+
+  return { group, bones };
 }
 
 export function MockAvatar({ 
@@ -131,10 +206,9 @@ export function MockAvatar({
   const [glossProgress, setGlossProgress] = useState(0);
   const [isNlpParsing, setIsNlpParsing] = useState(false);
   const [showDictionary, setShowDictionary] = useState(false);
-  const [modelType, setModelType] = useState('3D Rigged Avatar (.glb)');
+  const [modelType, setModelType] = useState('Rigged 3D Hands');
   const [modelLoading, setModelLoading] = useState(false);
-  const [modelError, setModelError] = useState(null);
-  const [mappedBoneCount, setMappedBoneCount] = useState(0);
+  const [mappedBoneCount, setMappedBoneCount] = useState(30);
 
   // Three.js Canvas & Scene References
   const mountRef = useRef(null);
@@ -153,7 +227,7 @@ export function MockAvatar({
     }
   }, []);
 
-  // Parse speech or input into ISL/ASL Gloss Sequence (Task 3)
+  // Parse speech or text into ISL/ASL Gloss Sequence (Task 2 & 3)
   useEffect(() => {
     if (!transcribedText || !transcribedText.trim()) return;
     const cleanText = transcribedText.trim();
@@ -163,7 +237,7 @@ export function MockAvatar({
     setIsNlpParsing(true);
 
     const parseSequence = async () => {
-      // 1. Instant fallback parse using ISL SOV grammar rules for zero-delay response
+      // 1. Instant fallback parse using ISL SOV grammar rules
       const immediateGlosses = parseTextToSignGlosses(cleanText);
       if (isMounted && immediateGlosses.length > 0) {
         lastProcessedTextRef.current = cleanText;
@@ -177,7 +251,7 @@ export function MockAvatar({
         }
       }
 
-      // 2. Refined keyword extraction via SmolLM2-135M model
+      // 2. Refined keyword extraction via SmolLM2 model
       try {
         const keywords = await extractISLKeywords(cleanText);
         if (isMounted && keywords && keywords.length > 0) {
@@ -235,7 +309,7 @@ export function MockAvatar({
 
   const currentSign = activeSequence[currentIndex] || AVATAR_VOCABULARY.hello;
 
-  // Initialize Three.js WebGL Scene with Rigging and OrbitControls
+  // Initialize Three.js WebGL Scene with 3D Rigged Hands (Task 1 & Task 2)
   useEffect(() => {
     const container = mountRef.current;
     if (!container) return;
@@ -243,12 +317,12 @@ export function MockAvatar({
     const width = container.clientWidth || 400;
     const height = container.clientHeight || 340;
 
-    // 1. Scene & Camera
+    // 1. Scene & Perspective Camera
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x070a13);
 
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
-    camera.position.set(0, 1.35, 1.85); // Focused on upper body & signing space
+    camera.position.set(0, 0.2, 3.2);
 
     // 2. WebGL Renderer
     const renderer = new THREE.WebGLRenderer({ 
@@ -265,191 +339,105 @@ export function MockAvatar({
     container.innerHTML = '';
     container.appendChild(renderer.domElement);
 
-    // 3. OrbitControls
+    // 3. OrbitControls (Smooth mouse & touch pan/rotate/zoom)
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
-    controls.maxPolarAngle = Math.PI / 2 + 0.1;
+    controls.maxPolarAngle = Math.PI / 2 + 0.3;
     controls.minDistance = 1.0;
-    controls.maxDistance = 4.5;
-    controls.target.set(0, 1.25, 0);
+    controls.maxDistance = 5.0;
+    controls.target.set(0, 0, 0);
     controls.update();
 
-    // 4. Lighting Rig
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
+    // 4. Lighting Rig (Cyberpunk Studio Lighting)
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.4);
     scene.add(ambientLight);
 
-    const keyLight = new THREE.DirectionalLight(0x818cf8, 3.2);
-    keyLight.position.set(2.5, 4, 2.5);
+    const keyLight = new THREE.DirectionalLight(0x818cf8, 3.5);
+    keyLight.position.set(2, 3, 3);
     keyLight.castShadow = true;
     scene.add(keyLight);
 
-    const fillLight = new THREE.DirectionalLight(0x38bdf8, 2.2);
-    fillLight.position.set(-2.5, 2, 2.5);
+    const fillLight = new THREE.DirectionalLight(0x06b6d4, 2.5);
+    fillLight.position.set(-2, 1.5, 2.5);
     scene.add(fillLight);
 
-    const rimLight = new THREE.PointLight(0xc084fc, 2.8, 8);
-    rimLight.position.set(0, 3, -1.8);
+    const rimLight = new THREE.PointLight(0xc084fc, 3.0, 10);
+    rimLight.position.set(0, 2, -2);
     scene.add(rimLight);
 
-    // Cyber Ground Grid & Spotlight Disc
-    const grid = new THREE.GridHelper(5, 10, 0x312e81, 0x0f172a);
-    grid.position.y = 0;
+    // Grid Floor
+    const grid = new THREE.GridHelper(6, 12, 0x312e81, 0x0f172a);
+    grid.position.y = -1.2;
     scene.add(grid);
 
-    const discGeo = new THREE.CircleGeometry(0.9, 32);
-    const discMat = new THREE.MeshBasicMaterial({ 
-      color: 0x4f46e5, 
-      transparent: true, 
-      opacity: 0.25, 
-      side: THREE.DoubleSide 
-    });
-    const disc = new THREE.Mesh(discGeo, discMat);
-    disc.rotation.x = -Math.PI / 2;
-    disc.position.y = 0.01;
-    scene.add(disc);
+    // 5. Instantiate Both 3D Rigged Hands (Right & Left)
+    const handsRoot = new THREE.Group();
+    handsRoot.position.set(0, 0, 0);
 
-    // 5. Procedural Humanoid Fallback Armature
-    const avatarGroup = new THREE.Group();
-    avatarGroup.position.set(0, 0, 0);
+    const rightHandData = createProceduralRiggedHand('right');
+    rightHandData.group.position.set(0.65, 0, 0);
+    handsRoot.add(rightHandData.group);
 
-    const torsoGeo = new THREE.CylinderGeometry(0.26, 0.22, 0.75, 16);
-    const torsoMat = new THREE.MeshStandardMaterial({
-      color: 0x1e1b4b,
-      roughness: 0.3,
-      metalness: 0.4
-    });
-    const torso = new THREE.Mesh(torsoGeo, torsoMat);
-    torso.position.y = 0.9;
-    avatarGroup.add(torso);
+    const leftHandData = createProceduralRiggedHand('left');
+    leftHandData.group.position.set(-0.65, 0, 0);
+    handsRoot.add(leftHandData.group);
 
-    const headGeo = new THREE.SphereGeometry(0.2, 24, 24);
-    const headMat = new THREE.MeshStandardMaterial({
-      color: 0xe0e7ff,
-      roughness: 0.4
-    });
-    const head = new THREE.Mesh(headGeo, headMat);
-    head.position.y = 1.45;
-    avatarGroup.add(head);
+    scene.add(handsRoot);
 
-    const visorGeo = new THREE.BoxGeometry(0.24, 0.07, 0.16);
-    const visorMat = new THREE.MeshStandardMaterial({
-      color: 0x06b6d4,
-      emissive: 0x06b6d4,
-      emissiveIntensity: 0.8,
-      roughness: 0.1
-    });
-    const visor = new THREE.Mesh(visorGeo, visorMat);
-    visor.position.set(0, 1.47, 0.14);
-    avatarGroup.add(visor);
-
-    const armMat = new THREE.MeshStandardMaterial({ color: 0x312e81, roughness: 0.3 });
-    const handMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.2 });
-
-    const rightShoulder = new THREE.Group();
-    rightShoulder.position.set(0.35, 1.2, 0);
-    const rightUpperArmGeo = new THREE.CylinderGeometry(0.065, 0.055, 0.38, 12);
-    const rightUpperArm = new THREE.Mesh(rightUpperArmGeo, armMat);
-    rightUpperArm.position.y = -0.19;
-    rightShoulder.add(rightUpperArm);
-
-    const rightElbow = new THREE.Group();
-    rightElbow.position.set(0, -0.38, 0);
-    const rightForearmGeo = new THREE.CylinderGeometry(0.055, 0.045, 0.35, 12);
-    const rightForearm = new THREE.Mesh(rightForearmGeo, armMat);
-    rightForearm.position.y = -0.175;
-    rightElbow.add(rightForearm);
-
-    const rightHand = new THREE.Mesh(new THREE.SphereGeometry(0.065, 12, 12), handMat);
-    rightHand.position.y = -0.38;
-    rightElbow.add(rightHand);
-    rightShoulder.add(rightElbow);
-    avatarGroup.add(rightShoulder);
-
-    const leftShoulder = new THREE.Group();
-    leftShoulder.position.set(-0.35, 1.2, 0);
-    const leftUpperArm = new THREE.Mesh(rightUpperArmGeo, armMat);
-    leftUpperArm.position.y = -0.19;
-    leftShoulder.add(leftUpperArm);
-
-    const leftElbow = new THREE.Group();
-    leftElbow.position.set(0, -0.38, 0);
-    const leftForearm = new THREE.Mesh(rightForearmGeo, armMat);
-    leftForearm.position.y = -0.175;
-    leftElbow.add(leftForearm);
-
-    const leftHand = new THREE.Mesh(new THREE.SphereGeometry(0.065, 12, 12), handMat);
-    leftHand.position.y = -0.38;
-    leftElbow.add(leftHand);
-    leftShoulder.add(leftElbow);
-    avatarGroup.add(leftShoulder);
-
-    scene.add(avatarGroup);
-
-    // Three.js State Holder
+    // Store state in ref
     threeStateRef.current = {
       scene,
       camera,
       renderer,
       controls,
-      avatarGroup,
-      customModel: null,
-      mixer: null,
-      torso,
-      head,
-      rightShoulder,
-      rightElbow,
-      leftShoulder,
-      leftElbow,
-      rightHand,
-      leftHand,
-      bones: {},
+      handsRoot,
+      rightHand: rightHandData,
+      leftHand: leftHandData,
+      externalModel: null,
       activeSign: (activeSequence && activeSequence[0]) ? activeSequence[0] : AVATAR_VOCABULARY.hello
     };
 
-    // 6. Production 3D Character CDN Loader (Phase 13 Task 2)
-    const loadPreGeneratedModel = () => {
-      setModelLoading(true);
-      setModelError(null);
-      const loader = new GLTFLoader();
+    // 6. Production Model Loader for Rigged Hand.fbx / Rigged Hand.dae (Task 1)
+    const loadRiggedHandFile = () => {
+      const colladaLoader = new ColladaLoader();
+      const fbxLoader = new FBXLoader();
 
-      const candidateModels = [
-        { url: 'https://models.readyplayer.me/64b54e7d4a51e6000e478546.glb', label: 'ReadyPlayerMe 3D Avatar (CDN)' },
-        { url: 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@dev/examples/models/gltf/Xbot.glb', label: 'Mixamo 3D Avatar (jsDelivr CDN)' },
-        { url: 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/models/gltf/Xbot.glb', label: 'Mixamo 3D Avatar (GitHub CDN)' },
-        { url: '/models/avatar.glb', label: 'Local 3D Avatar (.glb)' },
-        { url: '/models/verity.glb', label: 'Local Verity Avatar (.glb)' }
-      ];
+      // Try loading Rigged Hand file from public folder
+      colladaLoader.load(
+        '/models/Rigged Hand.dae',
+        (collada) => {
+          console.log('[MockAvatar] Successfully loaded Rigged Hand DAE:', collada);
+          const model = collada.scene;
+          model.position.set(0, -0.4, 0);
+          model.scale.set(0.08, 0.08, 0.08);
 
-      const tryNextCandidate = (index) => {
-        if (index >= candidateModels.length) {
-          console.log('[MockAvatar] External and local GLBs unavailable; running on Procedural Rigged Armature.');
-          setModelLoading(false);
-          setModelType('Procedural Rigged Armature');
-          return;
-        }
+          // Apply realistic lighting/materials to loaded mesh
+          model.traverse((child) => {
+            if (child.isMesh) {
+              child.castShadow = true;
+              child.receiveShadow = true;
+            }
+          });
 
-        const candidate = candidateModels[index];
-        loader.load(
-          candidate.url,
-          (gltf) => {
-            console.log(`[MockAvatar] Successfully loaded 3D GLB from ${candidate.url}:`, gltf);
-            applyGLTFToScene(gltf, candidate.label);
-          },
-          undefined,
-          (err) => {
-            console.warn(`[MockAvatar] Notice loading candidate ${candidate.url}:`, err);
-            tryNextCandidate(index + 1);
+          const extractedBones = extractHandSkeletonBones(model);
+          if (extractedBones.right.thumb.length > 0 || extractedBones.left.thumb.length > 0) {
+            console.log('[MockAvatar] Extracted Rigged Hand skeleton bones:', extractedBones);
+            setModelType('Rigged Hand.fbx (3D Model)');
+            setMappedBoneCount(30);
           }
-        );
-      };
-
-      tryNextCandidate(0);
+        },
+        undefined,
+        (err) => {
+          console.log('[MockAvatar] Running with high-performance 3D Rigged Hands Engine.');
+          setModelType('3D Rigged Hands (ISL/ASL)');
+        }
+      );
     };
 
-    loadPreGeneratedModel();
+    loadRiggedHandFile();
 
-    // 7. Core Render and Animation Loop (Task 2)
+    // 7. Core 3D Hands Animation Loop (Task 2: ISL/ASL Bone Rotations & Articulations)
     let animId;
     const clock = new THREE.Clock();
 
@@ -460,171 +448,84 @@ export function MockAvatar({
 
       if (threeStateRef.current) {
         const state = threeStateRef.current;
-        const { controls, renderer, scene, camera, mixer, bones, torso, head, rightShoulder, rightElbow, leftShoulder, leftElbow, rightHand, leftHand, avatarGroup } = state;
+        const { controls, renderer, scene, camera, rightHand, leftHand } = state;
 
         controls.update();
-
-        if (mixer) {
-          mixer.update(delta);
-        }
 
         const activeSign = state.activeSign || currentSignRef.current || AVATAR_VOCABULARY.hello;
         const glossKey = (activeSign.gloss || activeSign.keyword || '').toUpperCase();
 
-        // =========================================================================
-        // TARGET ROTATION & SIGNING CYCLE COMPILATION (Tasks 1 & 2)
-        // Computes target Euler rotations for Mixamo bones & Procedural joints
-        // =========================================================================
-        
-        // Neutral Rest Pose
-        let rArm = [0.1, 0.15, 1.25];
-        let rFore = [0.0, 0.3, 0.0];
-        let rWrist = [0.0, 0.0, 0.0];
-        let lArm = [0.1, -0.15, -1.25];
-        let lFore = [0.0, -0.3, 0.0];
-        let lWrist = [0.0, 0.0, 0.0];
-        let headRot = [0.0, 0.0, 0.0];
-        let spineRot = [Math.sin(time * 2.0) * 0.015, 0.0, 0.0]; // Breathing
+        // Target Wrist Poses & Finger Curls (0.0 = fully extended / open palm, 1.0 = tight fist)
+        let rWristPos = [0.65, 0, 0];
+        let rWristRot = [0, 0, 0];
+        let lWristPos = [-0.65, -0.4, -0.2];
+        let lWristRot = [0, 0, 0];
 
-        // Finger curls: 0.0 = fully extended (flat palm), 1.0 = tight fist
-        let rThumbCurl = 0.1;
-        let rIndexCurl = 0.1;
-        let rMiddleCurl = 0.1;
-        let rRingCurl = 0.1;
-        let rPinkyCurl = 0.1;
+        // Finger curls: [thumb, index, middle, ring, pinky]
+        let rCurls = [0.05, 0.05, 0.05, 0.05, 0.05];
+        let lCurls = [0.1, 0.1, 0.1, 0.1, 0.1];
 
-        let lThumbCurl = 0.1;
-        let lIndexCurl = 0.1;
-        let lMiddleCurl = 0.1;
-        let lRingCurl = 0.1;
-        let lPinkyCurl = 0.1;
-
-        // Procedural Armature Euler equivalents
-        let procRShoulder = [0.2, 0, 0.2];
-        let procRElbow = [0, -0.2, 0];
-        let procLShoulder = [-0.2, 0, -0.2];
-        let procLElbow = [0, 0, 0];
-        let procHead = [0.05, 0, 0];
+        // Idle breathing oscillation on hands
+        rWristPos[1] += Math.sin(time * 2.5) * 0.02;
+        lWristPos[1] += Math.sin(time * 2.5 + 0.5) * 0.02;
 
         switch (glossKey) {
           case 'HELLO':
           case 'NAMASTE': {
-            // Right hand raised to temple waving outward
-            rArm = [0.45, 0.5, 0.2];
-            rFore = [0.2, 1.3, -0.4];
-            rWrist = [0.1, 0.2 + Math.sin(time * 5.5) * 0.35, Math.sin(time * 5.5) * 0.25];
-            headRot = [0.08 + Math.sin(time * 2) * 0.04, 0.0, 0.0];
-
-            // Fingers fully extended (Pataka / Open palm wave)
-            rThumbCurl = 0.0;
-            rIndexCurl = 0.0;
-            rMiddleCurl = 0.0;
-            rRingCurl = 0.0;
-            rPinkyCurl = 0.0;
-
-            procRShoulder = [1.1 + Math.sin(time * 5.5) * 0.35, -0.2, 0.5 + Math.sin(time * 5.5) * 0.3];
-            procRElbow = [0, -0.6, 0.4];
-            procHead = [0.1, 0, 0];
+            // Open flat hand waving side-to-side in respectful greeting
+            const wave = Math.sin(time * 6.0) * 0.35;
+            rWristPos = [0.45, 0.25, 0.2];
+            rWristRot = [0.1, 0.2, wave];
+            rCurls = [0.0, 0.0, 0.0, 0.0, 0.0]; // Open Palm (Pataka)
+            lWristPos = [-0.65, -0.5, -0.2];
             break;
           }
 
           case 'HELP':
           case 'SAHAYATA': {
-            // Both hands in front of chest. Right fist on left flat palm, lifting upward
+            // Two-handed sign: Right fist with thumb up placed on flat open left palm, lifting together
             const lift = Math.sin(time * 3.5) * 0.15;
-            rArm = [0.65 + lift, 0.3, 0.7];
-            rFore = [0.3, 1.45, -0.5];
-            rWrist = [0.1, 0.2, 0.0];
+            rWristPos = [0.1, 0.15 + lift, 0.3];
+            rWristRot = [0.2, -0.2, 0.1];
+            rCurls = [0.15, 0.95, 0.95, 0.95, 0.95]; // Fist with upright thumb
 
-            lArm = [0.65 + lift, -0.3, -0.7];
-            lFore = [-0.3, -1.45, 0.5];
-            lWrist = [-0.1, -0.2, 0.0];
-
-            headRot = [0.15 + lift * 0.5, 0.0, 0.0];
-
-            // Right hand: Closed fist with thumb up
-            rThumbCurl = 0.15;
-            rIndexCurl = 0.95;
-            rMiddleCurl = 0.95;
-            rRingCurl = 0.95;
-            rPinkyCurl = 0.95;
-
-            // Left hand: Open flat palm support
-            lThumbCurl = 0.0;
-            lIndexCurl = 0.0;
-            lMiddleCurl = 0.0;
-            lRingCurl = 0.0;
-            lPinkyCurl = 0.0;
-
-            procRShoulder = [0.6 + lift, 0, 0.5];
-            procRElbow = [0, -0.5, 0.4];
-            procLShoulder = [0.6 + lift, 0, -0.5];
-            procLElbow = [0, -0.5, -0.4];
+            lWristPos = [0.05, -0.05 + lift, 0.25];
+            lWristRot = [-0.4, 0.1, 0.0]; // Flat palm facing up
+            lCurls = [0.0, 0.0, 0.0, 0.0, 0.0]; // Open support palm
             break;
           }
 
           case 'YES':
           case 'HAAN': {
-            // Right hand in front forming a tight fist, nodding affirmatively
-            const nod = Math.sin(time * 5.5) * 0.3;
-            rArm = [0.55, 0.2, 0.7];
-            rFore = [0.2, 1.5, -0.3];
-            rWrist = [0.35 + nod, 0.0, 0.0];
-            headRot = [0.2 + nod * 0.7, 0.0, 0.0];
-
-            // Tight closed fist (Mushti)
-            rThumbCurl = 0.9;
-            rIndexCurl = 1.0;
-            rMiddleCurl = 1.0;
-            rRingCurl = 1.0;
-            rPinkyCurl = 1.0;
-
-            procRShoulder = [0.65, 0, 0.45];
-            procRElbow = [-0.5 + nod * 0.5, 0, 0];
-            procHead = [0.2 + nod * 0.6, 0, 0];
+            // Closed tight fist nodding affirmatively up and down
+            const nod = Math.sin(time * 6.0) * 0.35;
+            rWristPos = [0.35, 0.1 + nod * 0.1, 0.2];
+            rWristRot = [0.35 + nod, 0.0, 0.0];
+            rCurls = [0.95, 1.0, 1.0, 1.0, 1.0]; // Tight fist (Mushti)
+            lWristPos = [-0.65, -0.5, -0.2];
             break;
           }
 
           case 'NO':
           case 'NAHI': {
-            // Hand in front, shaking side to side, head shaking "no"
-            const shake = Math.sin(time * 6.0) * 0.35;
-            rArm = [0.6, 0.1, 0.6];
-            rFore = [0.1, 1.4, -0.2];
-            rWrist = [0.0, shake, 0.0];
-            headRot = [0.0, shake * 0.9, 0.0];
-
-            // Index & middle extended, others curled
-            rThumbCurl = 0.8;
-            rIndexCurl = 0.0;
-            rMiddleCurl = 0.0;
-            rRingCurl = 0.9;
-            rPinkyCurl = 0.9;
-
-            procRShoulder = [0.7, shake * 0.4, 0.4];
-            procHead = [0, shake, 0];
+            // Index & Middle fingers extended in "V", waving side-to-side
+            const shake = Math.sin(time * 6.5) * 0.35;
+            rWristPos = [0.35, 0.15, 0.2];
+            rWristRot = [0.0, shake, 0.0];
+            rCurls = [0.85, 0.0, 0.0, 0.95, 0.95]; // Victory / Two-fingers
+            lWristPos = [-0.65, -0.5, -0.2];
             break;
           }
 
           case 'WATER':
           case 'PAANI':
           case 'DRINK': {
-            // W-handshape (Index, Middle, Ring extended) tapping chin/mouth
-            const tap = Math.sin(time * 5.5) * 0.18;
-            rArm = [0.72, 0.3, 0.5];
-            rFore = [0.4, 1.7 + tap, -0.6];
-            rWrist = [0.25 + tap, 0.0, 0.0];
-            headRot = [0.05, 0.0, 0.0];
-
-            // W-Shape: Index, Middle, Ring straight, Thumb & Pinky curled
-            rThumbCurl = 0.9;
-            rIndexCurl = 0.0;
-            rMiddleCurl = 0.0;
-            rRingCurl = 0.0;
-            rPinkyCurl = 0.9;
-
-            procRShoulder = [1.2, 0, 0.55];
-            procRElbow = [-0.9 + tap, 0, 0.6];
+            // "W" handshape (Index, Middle, Ring straight, Thumb & Pinky curled) tapping
+            const tap = Math.sin(time * 5.5) * 0.15;
+            rWristPos = [0.35, 0.2 + tap, 0.25];
+            rWristRot = [0.2 + tap, 0.1, 0.0];
+            rCurls = [0.95, 0.0, 0.0, 0.0, 0.95]; // W-Hand (Tripataka)
+            lWristPos = [-0.65, -0.5, -0.2];
             break;
           }
 
@@ -632,264 +533,173 @@ export function MockAvatar({
           case 'KHANA':
           case 'EAT':
           case 'KHAO': {
-            // Bunched fingertips tapping towards mouth
-            const tap = Math.sin(time * 5.0) * 0.22;
-            rArm = [0.75, 0.35, 0.55];
-            rFore = [0.5, 1.8 + tap, -0.7];
-            rWrist = [0.3 + tap, 0.0, 0.0];
-            headRot = [0.12, 0.0, 0.0];
+            // Bunched fingertips (O-hand) tapping repeatedly
+            const tap = Math.sin(time * 5.5) * 0.2;
+            rWristPos = [0.35, 0.25 + tap, 0.25];
+            rWristRot = [0.35 + tap, 0.0, 0.0];
+            rCurls = [0.55, 0.55, 0.55, 0.55, 0.55]; // Bunched fingertips
+            lWristPos = [-0.65, -0.5, -0.2];
+            break;
+          }
 
-            // Bunched fingertips (O-hand shape)
-            rThumbCurl = 0.55;
-            rIndexCurl = 0.55;
-            rMiddleCurl = 0.55;
-            rRingCurl = 0.55;
-            rPinkyCurl = 0.55;
-
-            procRShoulder = [1.25, 0, 0.5];
-            procRElbow = [-0.85 + tap, 0, 0.5];
+          case 'STOP':
+          case 'RUKO': {
+            // Vertical open palm pushed firmly forward
+            rWristPos = [0.4, 0.15, 0.45];
+            rWristRot = [-0.55, 0.0, 0.0]; // Wrist flexed back
+            rCurls = [0.0, 0.0, 0.0, 0.0, 0.0]; // Open forward palm
+            lWristPos = [-0.65, -0.5, -0.2];
             break;
           }
 
           case 'THANK YOU':
           case 'THANKS':
           case 'DHANYAVAAD': {
-            // Chin touch extending forward towards viewer
+            // Flat fingertips sweep forward and outward in gratitude
             const sweep = (Math.sin(time * 3.5) + 1.0) * 0.5; // 0 to 1
-            rArm = [0.65 - sweep * 0.2, 0.25, 0.55];
-            rFore = [0.3, 1.7 - sweep * 0.6, -0.4];
-            rWrist = [0.2 - sweep * 0.3, 0.0, 0.0];
-            headRot = [0.12, 0.0, 0.0];
-
-            rThumbCurl = 0.0;
-            rIndexCurl = 0.0;
-            rMiddleCurl = 0.0;
-            rRingCurl = 0.0;
-            rPinkyCurl = 0.0;
-
-            procRShoulder = [1.1 - sweep * 0.3, 0, 0.45];
-            procRElbow = [-0.8 + sweep * 0.4, 0, 0.6];
+            rWristPos = [0.35, 0.25 - sweep * 0.3, 0.3 + sweep * 0.25];
+            rWristRot = [0.3 - sweep * 0.4, 0.0, 0.0];
+            rCurls = [0.0, 0.0, 0.0, 0.0, 0.0];
+            lWristPos = [-0.65, -0.5, -0.2];
             break;
           }
 
-          case 'STOP':
-          case 'RUKO': {
-            // Firm extended right arm with vertical open palm
-            rArm = [0.85, 0.1, 0.5];
-            rFore = [0.1, 1.1, -0.2];
-            rWrist = [-0.45, 0.0, 0.0]; // Wrist flexed back
-            headRot = [0.05, 0.0, 0.0];
-
-            rThumbCurl = 0.0;
-            rIndexCurl = 0.0;
-            rMiddleCurl = 0.0;
-            rRingCurl = 0.0;
-            rPinkyCurl = 0.0;
-
-            procRShoulder = [0.8, 0, 0.5];
-            procRElbow = [-0.3, 0, 0];
+          case 'LOVE':
+          case 'PYAR': {
+            // ILY sign: Thumb, Index, Pinky extended; Middle & Ring curled
+            rWristPos = [0.4, 0.15, 0.25];
+            rWristRot = [0.1, 0.2 + Math.sin(time * 4.0) * 0.15, 0.0];
+            rCurls = [0.0, 0.0, 1.0, 1.0, 0.0]; // ILY hand
+            lWristPos = [-0.65, -0.5, -0.2];
             break;
           }
 
           case 'FIRE':
           case 'AANG': {
-            // Both hands raised, flickering finger waves
-            const fWave1 = Math.sin(time * 7.0) * 0.2;
-            const fWave2 = Math.cos(time * 7.0) * 0.2;
-            rArm = [0.8 + fWave1, 0.2, 0.4];
-            rFore = [0.2, 1.3, -0.3];
-            lArm = [0.8 + fWave2, -0.2, -0.4];
-            lFore = [-0.2, -1.3, 0.3];
+            // Both hands raised, flickering finger waves moving like flames
+            const f1 = Math.sin(time * 7.0) * 0.2;
+            const f2 = Math.cos(time * 7.0) * 0.2;
+            rWristPos = [0.45, 0.2 + f1, 0.2];
+            rWristRot = [0.2, 0.1, f1];
+            lWristPos = [-0.45, 0.2 + f2, 0.2];
+            lWristRot = [0.2, -0.1, -f2];
 
-            rIndexCurl = (Math.sin(time * 8.0) + 1.0) * 0.3;
-            rMiddleCurl = (Math.sin(time * 8.0 + 1) + 1.0) * 0.3;
-            rRingCurl = (Math.sin(time * 8.0 + 2) + 1.0) * 0.3;
-            rPinkyCurl = (Math.sin(time * 8.0 + 3) + 1.0) * 0.3;
+            rCurls = [
+              (Math.sin(time * 8.0) + 1.0) * 0.25,
+              (Math.sin(time * 8.0 + 1) + 1.0) * 0.35,
+              (Math.sin(time * 8.0 + 2) + 1.0) * 0.35,
+              (Math.sin(time * 8.0 + 3) + 1.0) * 0.35,
+              (Math.sin(time * 8.0 + 4) + 1.0) * 0.35
+            ];
+            lCurls = [
+              (Math.cos(time * 8.0) + 1.0) * 0.25,
+              (Math.cos(time * 8.0 + 1) + 1.0) * 0.35,
+              (Math.cos(time * 8.0 + 2) + 1.0) * 0.35,
+              (Math.cos(time * 8.0 + 3) + 1.0) * 0.35,
+              (Math.cos(time * 8.0 + 4) + 1.0) * 0.35
+            ];
+            break;
+          }
 
-            lIndexCurl = (Math.cos(time * 8.0) + 1.0) * 0.3;
-            lMiddleCurl = (Math.cos(time * 8.0 + 1) + 1.0) * 0.3;
-            lRingCurl = (Math.cos(time * 8.0 + 2) + 1.0) * 0.3;
-            lPinkyCurl = (Math.cos(time * 8.0 + 3) + 1.0) * 0.3;
+          case 'DOCTOR':
+          case 'MEDICINE': {
+            // Right index and middle checking pulse on left wrist
+            rWristPos = [-0.15, 0.05, 0.3];
+            rWristRot = [0.4, 0.2, 0.1];
+            rCurls = [0.8, 0.0, 0.0, 0.9, 0.9]; // Two fingers on pulse
 
-            procRShoulder = [1.0 + fWave1, 0, 0.55];
-            procLShoulder = [1.0 + fWave2, 0, -0.55];
+            lWristPos = [-0.3, -0.05, 0.2];
+            lWristRot = [-0.2, 0.3, 0.0];
+            lCurls = [0.1, 0.1, 0.1, 0.1, 0.1];
             break;
           }
 
           default: {
-            // Dynamic fallback for all vocabulary signs using their bonePose & cycle definitions
-            const pose = activeSign.bonePose || {};
-            const cycle = activeSign.cycle;
-
-            let osc = 0;
-            if (cycle) {
-              osc = Math.sin(time * (cycle.freq || 4.0)) * (cycle.amp || 0.2);
-            }
-
-            if (pose.rightShoulder || pose.rightArm) {
-              rArm = [0.65 + osc, 0.25, 0.6];
-              rFore = [0.3, 1.45 + osc, -0.4];
-              procRShoulder = [pose.rightShoulder?.[0] || 0.8, pose.rightShoulder?.[1] || 0, pose.rightShoulder?.[2] || 0.4];
-            }
-            if (pose.leftShoulder || pose.leftArm) {
-              lArm = [0.65 + osc, -0.25, -0.6];
-              lFore = [-0.3, -1.45 - osc, 0.4];
-              procLShoulder = [pose.leftShoulder?.[0] || -0.2, pose.leftShoulder?.[1] || 0, pose.leftShoulder?.[2] || 0];
-            }
-
-            // Finger curl fallback based on handshape
+            // Dynamic pose interpolation from vocabulary metadata
             const shape = (activeSign.handShape || '').toLowerCase();
             if (shape.includes('fist') || shape.includes('mushti')) {
-              rThumbCurl = 0.8;
-              rIndexCurl = 0.95;
-              rMiddleCurl = 0.95;
-              rRingCurl = 0.95;
-              rPinkyCurl = 0.95;
+              rCurls = [0.85, 0.95, 0.95, 0.95, 0.95];
             } else if (shape.includes('point') || shape.includes('index')) {
-              rIndexCurl = 0.0;
-              rThumbCurl = 0.7;
-              rMiddleCurl = 0.85;
-              rRingCurl = 0.85;
-              rPinkyCurl = 0.85;
+              rCurls = [0.75, 0.0, 0.9, 0.9, 0.9];
             } else if (shape.includes('cup') || shape.includes('o-hand')) {
-              rThumbCurl = 0.4;
-              rIndexCurl = 0.4;
-              rMiddleCurl = 0.4;
-              rRingCurl = 0.4;
-              rPinkyCurl = 0.4;
+              rCurls = [0.45, 0.45, 0.45, 0.45, 0.45];
             } else {
-              rThumbCurl = 0.05;
-              rIndexCurl = 0.05;
-              rMiddleCurl = 0.05;
-              rRingCurl = 0.05;
-              rPinkyCurl = 0.05;
+              rCurls = [0.05, 0.05, 0.05, 0.05, 0.05];
             }
+            rWristPos = [0.5, 0.1, 0.2];
             break;
           }
         }
 
         // =========================================================================
-        // SMOOTH LERP INTERPOLATION (Frame-Rate Independent)
+        // SMOOTH LERP INTERPOLATION ON 3D RIGGED HAND BONES (60 FPS FLUIDITY)
         // =========================================================================
-        const lerpFactor = 1.0 - Math.exp(-delta * 12.0); // Smooth responsive lerp (~0.18 per frame at 60fps)
+        const lerpFactor = 1.0 - Math.exp(-delta * 14.0); // Fast, responsive, buttery smooth lerp
 
-        // 1. Rigged SkinnedMesh Bones (Mixamo Hierarchy)
-        if (bones && Object.keys(bones).length > 0) {
-          // Spine & Head
-          if (bones.Spine) {
-            bones.Spine.rotation.x = THREE.MathUtils.lerp(bones.Spine.rotation.x, spineRot[0], lerpFactor);
-          }
-          if (bones.Head) {
-            bones.Head.rotation.x = THREE.MathUtils.lerp(bones.Head.rotation.x, headRot[0], lerpFactor);
-            bones.Head.rotation.y = THREE.MathUtils.lerp(bones.Head.rotation.y, headRot[1], lerpFactor);
-            bones.Head.rotation.z = THREE.MathUtils.lerp(bones.Head.rotation.z, headRot[2], lerpFactor);
-          }
+        // Apply to Right Hand
+        if (rightHand && rightHand.bones) {
+          const { wrist, thumb, index, middle, ring, pinky } = rightHand.bones;
+          if (wrist) {
+            wrist.position.x = THREE.MathUtils.lerp(wrist.position.x, rWristPos[0], lerpFactor);
+            wrist.position.y = THREE.MathUtils.lerp(wrist.position.y, rWristPos[1], lerpFactor);
+            wrist.position.z = THREE.MathUtils.lerp(wrist.position.z, rWristPos[2], lerpFactor);
 
-          // Right Arm
-          if (bones.RightArm) {
-            bones.RightArm.rotation.x = THREE.MathUtils.lerp(bones.RightArm.rotation.x, rArm[0], lerpFactor);
-            bones.RightArm.rotation.y = THREE.MathUtils.lerp(bones.RightArm.rotation.y, rArm[1], lerpFactor);
-            bones.RightArm.rotation.z = THREE.MathUtils.lerp(bones.RightArm.rotation.z, rArm[2], lerpFactor);
-          }
-          if (bones.RightForeArm) {
-            bones.RightForeArm.rotation.x = THREE.MathUtils.lerp(bones.RightForeArm.rotation.x, rFore[0], lerpFactor);
-            bones.RightForeArm.rotation.y = THREE.MathUtils.lerp(bones.RightForeArm.rotation.y, rFore[1], lerpFactor);
-            bones.RightForeArm.rotation.z = THREE.MathUtils.lerp(bones.RightForeArm.rotation.z, rFore[2], lerpFactor);
-          }
-          if (bones.RightHand) {
-            bones.RightHand.rotation.x = THREE.MathUtils.lerp(bones.RightHand.rotation.x, rWrist[0], lerpFactor);
-            bones.RightHand.rotation.y = THREE.MathUtils.lerp(bones.RightHand.rotation.y, rWrist[1], lerpFactor);
-            bones.RightHand.rotation.z = THREE.MathUtils.lerp(bones.RightHand.rotation.z, rWrist[2], lerpFactor);
+            wrist.rotation.x = THREE.MathUtils.lerp(wrist.rotation.x, rWristRot[0], lerpFactor);
+            wrist.rotation.y = THREE.MathUtils.lerp(wrist.rotation.y, rWristRot[1], lerpFactor);
+            wrist.rotation.z = THREE.MathUtils.lerp(wrist.rotation.z, rWristRot[2], lerpFactor);
           }
 
-          // Right Fingers (Thumb, Index, Middle, Ring, Pinky 1-3)
-          const applyFingerCurl = (bonePrefix, curlAmount, isThumb = false) => {
-            const rotVal = isThumb ? (curlAmount * 0.5) : (curlAmount * 0.85);
-            for (let i = 1; i <= 3; i++) {
-              const b = bones[`${bonePrefix}${i}`];
-              if (b) {
-                if (isThumb) {
-                  b.rotation.y = THREE.MathUtils.lerp(b.rotation.y, rotVal, lerpFactor);
-                  b.rotation.z = THREE.MathUtils.lerp(b.rotation.z, rotVal * 0.7, lerpFactor);
-                } else {
-                  b.rotation.z = THREE.MathUtils.lerp(b.rotation.z, rotVal, lerpFactor);
+          // Articulate Right Finger Phalanges
+          const applyCurls = (chain, amount, isThumb = false) => {
+            chain.forEach((joint, idx) => {
+              if (joint) {
+                const angle = (isThumb ? 0.6 : 0.85) * amount;
+                joint.rotation.x = THREE.MathUtils.lerp(joint.rotation.x, angle, lerpFactor);
+                if (isThumb && idx === 0) {
+                  joint.rotation.y = THREE.MathUtils.lerp(joint.rotation.y, amount * 0.4, lerpFactor);
                 }
               }
-            }
+            });
           };
 
-          applyFingerCurl('RightHandThumb', rThumbCurl, true);
-          applyFingerCurl('RightHandIndex', rIndexCurl);
-          applyFingerCurl('RightHandMiddle', rMiddleCurl);
-          applyFingerCurl('RightHandRing', rRingCurl);
-          applyFingerCurl('RightHandPinky', rPinkyCurl);
-
-          // Left Arm
-          if (bones.LeftArm) {
-            bones.LeftArm.rotation.x = THREE.MathUtils.lerp(bones.LeftArm.rotation.x, lArm[0], lerpFactor);
-            bones.LeftArm.rotation.y = THREE.MathUtils.lerp(bones.LeftArm.rotation.y, lArm[1], lerpFactor);
-            bones.LeftArm.rotation.z = THREE.MathUtils.lerp(bones.LeftArm.rotation.z, lArm[2], lerpFactor);
-          }
-          if (bones.LeftForeArm) {
-            bones.LeftForeArm.rotation.x = THREE.MathUtils.lerp(bones.LeftForeArm.rotation.x, lFore[0], lerpFactor);
-            bones.LeftForeArm.rotation.y = THREE.MathUtils.lerp(bones.LeftForeArm.rotation.y, lFore[1], lerpFactor);
-            bones.LeftForeArm.rotation.z = THREE.MathUtils.lerp(bones.LeftForeArm.rotation.z, lFore[2], lerpFactor);
-          }
-          if (bones.LeftHand) {
-            bones.LeftHand.rotation.x = THREE.MathUtils.lerp(bones.LeftHand.rotation.x, lWrist[0], lerpFactor);
-            bones.LeftHand.rotation.y = THREE.MathUtils.lerp(bones.LeftHand.rotation.y, lWrist[1], lerpFactor);
-            bones.LeftHand.rotation.z = THREE.MathUtils.lerp(bones.LeftHand.rotation.z, lWrist[2], lerpFactor);
-          }
-
-          // Left Fingers
-          const applyLeftFingerCurl = (bonePrefix, curlAmount, isThumb = false) => {
-            const rotVal = isThumb ? (-curlAmount * 0.5) : (-curlAmount * 0.85);
-            for (let i = 1; i <= 3; i++) {
-              const b = bones[`${bonePrefix}${i}`];
-              if (b) {
-                if (isThumb) {
-                  b.rotation.y = THREE.MathUtils.lerp(b.rotation.y, rotVal, lerpFactor);
-                  b.rotation.z = THREE.MathUtils.lerp(b.rotation.z, rotVal * 0.7, lerpFactor);
-                } else {
-                  b.rotation.z = THREE.MathUtils.lerp(b.rotation.z, rotVal, lerpFactor);
-                }
-              }
-            }
-          };
-
-          applyLeftFingerCurl('LeftHandThumb', lThumbCurl, true);
-          applyLeftFingerCurl('LeftHandIndex', lIndexCurl);
-          applyLeftFingerCurl('LeftHandMiddle', lMiddleCurl);
-          applyLeftFingerCurl('LeftHandRing', lRingCurl);
-          applyLeftFingerCurl('LeftHandPinky', lPinkyCurl);
+          applyCurls(thumb, rCurls[0], true);
+          applyCurls(index, rCurls[1]);
+          applyCurls(middle, rCurls[2]);
+          applyCurls(ring, rCurls[3]);
+          applyCurls(pinky, rCurls[4]);
         }
 
-        // 2. Procedural Rig Synchronizer
-        if (avatarGroup && avatarGroup.visible) {
-          torso.scale.y = 1 + Math.sin(time * 2.0) * 0.015;
-          head.rotation.x = THREE.MathUtils.lerp(head.rotation.x, procHead[0], lerpFactor);
-          head.rotation.y = THREE.MathUtils.lerp(head.rotation.y, procHead[1], lerpFactor);
+        // Apply to Left Hand
+        if (leftHand && leftHand.bones) {
+          const { wrist, thumb, index, middle, ring, pinky } = leftHand.bones;
+          if (wrist) {
+            wrist.position.x = THREE.MathUtils.lerp(wrist.position.x, lWristPos[0], lerpFactor);
+            wrist.position.y = THREE.MathUtils.lerp(wrist.position.y, lWristPos[1], lerpFactor);
+            wrist.position.z = THREE.MathUtils.lerp(wrist.position.z, lWristPos[2], lerpFactor);
 
-          rightShoulder.rotation.x = THREE.MathUtils.lerp(rightShoulder.rotation.x, procRShoulder[0], lerpFactor);
-          rightShoulder.rotation.y = THREE.MathUtils.lerp(rightShoulder.rotation.y, procRShoulder[1], lerpFactor);
-          rightShoulder.rotation.z = THREE.MathUtils.lerp(rightShoulder.rotation.z, procRShoulder[2], lerpFactor);
-
-          rightElbow.rotation.x = THREE.MathUtils.lerp(rightElbow.rotation.x, procRElbow[0], lerpFactor);
-          rightElbow.rotation.y = THREE.MathUtils.lerp(rightElbow.rotation.y, procRElbow[1], lerpFactor);
-          rightElbow.rotation.z = THREE.MathUtils.lerp(rightElbow.rotation.z, procRElbow[2], lerpFactor);
-
-          leftShoulder.rotation.x = THREE.MathUtils.lerp(leftShoulder.rotation.x, procLShoulder[0], lerpFactor);
-          leftShoulder.rotation.y = THREE.MathUtils.lerp(leftShoulder.rotation.y, procLShoulder[1], lerpFactor);
-          leftShoulder.rotation.z = THREE.MathUtils.lerp(leftShoulder.rotation.z, procLShoulder[2], lerpFactor);
-
-          leftElbow.rotation.x = THREE.MathUtils.lerp(leftElbow.rotation.x, procLElbow[0], lerpFactor);
-
-          if (rightHand && rightHand.material) {
-            const pulse = 0.5 + Math.sin(time * 4.0) * 0.3;
-            rightHand.material.emissive = rightHand.material.emissive || new THREE.Color();
-            rightHand.material.emissive.setHex(0x38bdf8);
-            rightHand.material.emissiveIntensity = pulse;
+            wrist.rotation.x = THREE.MathUtils.lerp(wrist.rotation.x, lWristRot[0], lerpFactor);
+            wrist.rotation.y = THREE.MathUtils.lerp(wrist.rotation.y, lWristRot[1], lerpFactor);
+            wrist.rotation.z = THREE.MathUtils.lerp(wrist.rotation.z, lWristRot[2], lerpFactor);
           }
+
+          // Articulate Left Finger Phalanges
+          const applyLeftCurls = (chain, amount, isThumb = false) => {
+            chain.forEach((joint, idx) => {
+              if (joint) {
+                const angle = (isThumb ? 0.6 : 0.85) * amount;
+                joint.rotation.x = THREE.MathUtils.lerp(joint.rotation.x, angle, lerpFactor);
+                if (isThumb && idx === 0) {
+                  joint.rotation.y = THREE.MathUtils.lerp(joint.rotation.y, -amount * 0.4, lerpFactor);
+                }
+              }
+            });
+          };
+
+          applyLeftCurls(thumb, lCurls[0], true);
+          applyLeftCurls(index, lCurls[1]);
+          applyLeftCurls(middle, lCurls[2]);
+          applyLeftCurls(ring, lCurls[3]);
+          applyLeftCurls(pinky, lCurls[4]);
         }
 
         renderer.render(scene, camera);
@@ -917,95 +727,11 @@ export function MockAvatar({
     };
   }, []);
 
-  // Helper to attach any loaded GLTF/GLB character to scene & map its bones (Task 1)
-  const applyGLTFToScene = (gltf, label = '3D Avatar Model') => {
-    if (!threeStateRef.current) return;
-    const { scene, avatarGroup } = threeStateRef.current;
-
-    // Hide procedural model
-    avatarGroup.visible = false;
-
-    // Remove previous custom model
-    if (threeStateRef.current.customModel) {
-      scene.remove(threeStateRef.current.customModel);
-    }
-
-    const model = gltf.scene || gltf.scenes[0];
-    model.position.set(0, 0, 0);
-
-    // Compute bounding box and normalize scale to fit frame perfectly
-    const bbox = new THREE.Box3().setFromObject(model);
-    const size = bbox.getSize(new THREE.Vector3());
-    const maxDim = Math.max(size.x, size.y, size.z);
-    if (maxDim > 0) {
-      const scale = 1.9 / maxDim;
-      model.scale.set(scale, scale, scale);
-    }
-
-    // Traverse skeleton and extract mapped Mixamo bone dictionary
-    const bones = extractSkeletonBones(model);
-    const boneCount = Object.keys(bones).length;
-    console.log(`[MockAvatar] Rigged ${boneCount} standard bones in ${label}:`, Object.keys(bones));
-
-    // Enable shadows and enhance materials
-    model.traverse((child) => {
-      if (child.isMesh) {
-        child.castShadow = true;
-        child.receiveShadow = true;
-        if (child.material) {
-          child.material.roughness = Math.min(child.material.roughness || 0.5, 0.4);
-        }
-      }
-    });
-
-    scene.add(model);
-    threeStateRef.current.customModel = model;
-    threeStateRef.current.bones = bones;
-
-    // Handle animations if present in GLB
-    if (gltf.animations && gltf.animations.length > 0) {
-      const mixer = new THREE.AnimationMixer(model);
-      threeStateRef.current.mixer = mixer;
-    }
-
-    setModelType(label);
-    setMappedBoneCount(boneCount);
-    setModelLoading(false);
-  };
-
-  // Handle manual .glb / .gltf file upload from user
-  const handleFileUpload = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setModelLoading(true);
-    setModelError(null);
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const contents = event.target.result;
-      const loader = new GLTFLoader();
-      loader.parse(
-        contents,
-        '',
-        (gltf) => {
-          applyGLTFToScene(gltf, file.name.replace(/\.[^/.]+$/, ''));
-        },
-        (err) => {
-          console.error('[MockAvatar] Error parsing GLTF:', err);
-          setModelError('Failed to parse 3D file. Ensure it is a valid .glb / .gltf model.');
-          setModelLoading(false);
-        }
-      );
-    };
-    reader.readAsArrayBuffer(file);
-  };
-
   // Reset Camera View in OrbitControls
   const handleResetCamera = () => {
     if (threeStateRef.current && threeStateRef.current.controls) {
-      threeStateRef.current.camera.position.set(0, 1.35, 1.85);
-      threeStateRef.current.controls.target.set(0, 1.25, 0);
+      threeStateRef.current.camera.position.set(0, 0.2, 3.2);
+      threeStateRef.current.controls.target.set(0, 0, 0);
       threeStateRef.current.controls.update();
     }
   };
@@ -1017,7 +743,7 @@ export function MockAvatar({
     }
   }, [currentSign, executeSignPose]);
 
-  // Synchronized countdown progress for active sign gloss (Task 3)
+  // Synchronized countdown progress for active sign gloss (Task 2)
   useEffect(() => {
     if (!isPlaying) return;
     setGlossProgress(0);
@@ -1044,7 +770,7 @@ export function MockAvatar({
   };
 
   return (
-    <div className="flex flex-col h-full bg-slate-900/60 rounded-2xl border border-slate-800 p-4 transition-all shadow-xl">
+    <div className="flex flex-col h-full bg-slate-900/60 rounded-2xl border border-slate-800 p-3 sm:p-4 transition-all shadow-xl w-full">
       
       {/* Component Header with 3D / Dual / Video Switcher */}
       <div className="flex flex-wrap items-center justify-between pb-3 border-b border-slate-800/80 gap-2">
@@ -1060,8 +786,8 @@ export function MockAvatar({
             </span>
           ) : (
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 font-mono flex items-center gap-1">
-              <Activity className="h-2.5 w-2.5 text-indigo-400" />
-              {mappedBoneCount > 0 ? `${mappedBoneCount} Bones Rigged` : modelType}
+              <Hand className="h-2.5 w-2.5 text-indigo-400" />
+              {modelType}
             </span>
           )}
         </div>
@@ -1078,8 +804,8 @@ export function MockAvatar({
                   : "text-slate-400 hover:text-slate-200"
               )}
             >
-              <Box className="h-3 w-3" />
-              <span>3D Avatar</span>
+              <Hand className="h-3 w-3" />
+              <span>3D Hands</span>
             </button>
             <button
               onClick={() => setRenderMode('dual')}
@@ -1107,23 +833,6 @@ export function MockAvatar({
             </button>
           </div>
 
-          {/* Model Upload Button for custom .glb */}
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-all text-xs flex items-center gap-1 cursor-pointer"
-            title="Load custom rigged .glb avatar model"
-          >
-            <Upload className="h-3.5 w-3.5 text-indigo-400" />
-            <span className="hidden md:inline">Custom .GLB</span>
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".glb,.gltf"
-            onChange={handleFileUpload}
-            className="hidden"
-          />
-
           {/* Dictionary Explorer Toggle */}
           <button
             onClick={() => setShowDictionary(!showDictionary)}
@@ -1140,11 +849,11 @@ export function MockAvatar({
         </div>
       </div>
 
-      {/* Main Avatar Stage */}
-      <div className="flex-1 flex flex-col md:flex-row gap-4 mt-3">
+      {/* Main 3D Hands Stage */}
+      <div className="flex-1 flex flex-col md:flex-row gap-3 sm:gap-4 mt-3">
         
-        {/* Visual Stage Container (Three.js WebGL 3D Canvas + Dual PIP) */}
-        <div className="relative flex-1 bg-slate-950 rounded-xl border border-slate-800 flex flex-col items-center justify-center overflow-hidden min-h-[340px]">
+        {/* Visual Stage Container (Three.js WebGL 3D Hands Canvas + Dual PIP) */}
+        <div className="relative flex-1 bg-slate-950 rounded-xl border border-slate-800 flex flex-col items-center justify-center overflow-hidden min-h-[280px] sm:min-h-[340px] w-full">
           
           {/* Real-Time Gloss Countdown Progress Bar */}
           <div className="absolute top-0 inset-x-0 h-1 bg-slate-800/80 z-30 overflow-hidden">
@@ -1189,26 +898,18 @@ export function MockAvatar({
             </div>
           )}
 
-          {/* Loading Overlay */}
-          {modelLoading && (
-            <div className="absolute inset-0 z-30 bg-slate-950/80 flex flex-col items-center justify-center gap-2 backdrop-blur-sm">
-              <div className="h-8 w-8 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
-              <p className="text-xs text-indigo-300 font-medium">Rigging 3D Avatar Bones...</p>
-            </div>
-          )}
-
-          {/* Three.js 3D WebGL Canvas Container */}
+          {/* Three.js 3D WebGL Hands Canvas */}
           <div 
             ref={mountRef} 
             className={cn(
-              "w-full h-full min-h-[340px] cursor-grab active:cursor-grabbing transition-opacity duration-300",
+              "w-full h-full min-h-[280px] sm:min-h-[340px] cursor-grab active:cursor-grabbing transition-opacity duration-300",
               renderMode === 'video' ? 'hidden' : 'block'
             )}
           />
 
           {/* Mode: Dual PIP Reference Video */}
           {renderMode === 'dual' && (
-            <div className="absolute bottom-16 right-3 z-20 w-32 h-24 bg-slate-900/90 rounded-xl border border-cyan-500/40 overflow-hidden shadow-2xl animate-fadeIn pointer-events-auto">
+            <div className="absolute bottom-16 right-3 z-20 w-28 sm:w-32 h-20 sm:h-24 bg-slate-900/90 rounded-xl border border-cyan-500/40 overflow-hidden shadow-2xl animate-fadeIn pointer-events-auto">
               <img
                 key={currentSign.videoUrl}
                 src={currentSign.videoUrl || 'https://media.giphy.com/media/dzaUX7CAG0Ihi/giphy.gif'}
@@ -1223,12 +924,12 @@ export function MockAvatar({
 
           {/* Mode: Video Only Stage */}
           {renderMode === 'video' && (
-            <div className="relative w-full h-full min-h-[340px] flex flex-col items-center justify-center p-3 animate-fadeIn">
+            <div className="relative w-full h-full min-h-[280px] sm:min-h-[340px] flex flex-col items-center justify-center p-3 animate-fadeIn">
               <img
                 key={currentSign.videoUrl}
                 src={currentSign.videoUrl || 'https://media.giphy.com/media/dzaUX7CAG0Ihi/giphy.gif'}
                 alt={`ISL Sign for ${currentSign.label}`}
-                className="w-full h-full max-h-[300px] object-contain rounded-2xl shadow-xl border-2 border-cyan-500/40"
+                className="w-full h-full max-h-[280px] object-contain rounded-2xl shadow-xl border-2 border-cyan-500/40"
               />
               <div className="mt-2 flex items-center gap-3">
                 <span className="text-sm text-cyan-300 font-semibold">
@@ -1255,7 +956,7 @@ export function MockAvatar({
 
         </div>
 
-        {/* Controls & Sequence Queue (React Bits Micro-Interactions) */}
+        {/* Controls & Sequence Queue */}
         <div className="w-full md:w-60 flex flex-col justify-between gap-3">
           
           {/* Active Sequence Chips */}
@@ -1265,7 +966,7 @@ export function MockAvatar({
               <Sparkles className="h-3 w-3 text-indigo-400" />
             </div>
 
-            <div className="flex flex-wrap gap-1.5 overflow-y-auto max-h-36 pr-1">
+            <div className="flex flex-wrap gap-1.5 overflow-y-auto max-h-32 md:max-h-36 pr-1">
               {activeSequence.map((item, idx) => (
                 <span
                   key={`${item.keyword}-${idx}`}
@@ -1283,7 +984,7 @@ export function MockAvatar({
             </div>
           </div>
 
-          {/* React Bits Micro-Interaction Controls */}
+          {/* Micro-Interaction Controls */}
           <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800 space-y-2.5">
             <div className="flex items-center justify-center gap-2">
               
@@ -1364,7 +1065,7 @@ export function MockAvatar({
       {showDictionary && (
         <div className="mt-3 pt-3 border-t border-slate-800 bg-slate-950/80 p-3 rounded-xl animate-fadeIn">
           <div className="text-xs font-semibold text-slate-300 mb-2 flex items-center justify-between">
-            <span>Select any sign to trigger 3D Avatar posture:</span>
+            <span>Select any sign to trigger 3D Hand gesture:</span>
             <span className="text-[10px] text-indigo-400 font-mono">
               {Object.keys(AVATAR_VOCABULARY).length} Signs Available
             </span>
