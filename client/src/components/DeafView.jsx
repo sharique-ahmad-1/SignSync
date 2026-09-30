@@ -737,20 +737,20 @@ export function DeafView({
   };
 
   return (
-    <div className="relative flex flex-col h-full bg-slate-950 border-b border-slate-800 transition-all duration-300">
+    <div className="relative flex flex-col h-full bg-white border-b border-slate-200 transition-all duration-300">
       
       {/* Top Header Bar */}
-      <div className="flex items-center justify-between px-4 py-2.5 bg-slate-900/90 border-b border-slate-800">
+      <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 border-b border-slate-200">
         <div className="flex items-center gap-2">
-          <div className="h-2.5 w-2.5 rounded-full bg-cyan-400 animate-pulse" />
-          <span className="text-xs font-semibold uppercase tracking-wider text-cyan-400 font-heading">
+          <div className="h-2.5 w-2.5 rounded-full bg-cyan-600 animate-pulse" />
+          <span className="text-xs font-semibold uppercase tracking-wider text-slate-700 font-heading">
             Deaf User View • Hand Sign & Vision Tracker
           </span>
-          <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center gap-1">
+          <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-1">
             {signLanguageMode === 'ISL' ? '🇮🇳 ISL Mode' : '🇺🇸 ASL Mode'}
           </span>
           {simulationMode && (
-            <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+            <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-amber-50 text-amber-700 border border-amber-200">
               Demo Simulation Active
             </span>
           )}
@@ -763,12 +763,12 @@ export function DeafView({
             className={cn(
               "p-1.5 rounded-xl text-xs flex items-center gap-1.5 border transition-all cursor-pointer",
               showCanvasOverlay 
-                ? 'bg-cyan-950/60 border-cyan-500/40 text-cyan-300' 
-                : 'bg-slate-800/60 border-slate-700 text-slate-400'
+                ? 'bg-cyan-50 border-cyan-300 text-cyan-800' 
+                : 'bg-slate-100 border-slate-200 text-slate-600'
             )}
             title="Toggle Landmark Canvas Overlay"
           >
-            {showCanvasOverlay ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+            {showCanvasOverlay ? <Eye className="h-3.5 w-3.5 text-cyan-700" /> : <EyeOff className="h-3.5 w-3.5" />}
             <span className="hidden sm:inline">Landmarks</span>
           </button>
 
@@ -777,12 +777,12 @@ export function DeafView({
             className={cn(
               "p-1.5 rounded-xl text-xs flex items-center gap-1.5 border transition-all cursor-pointer",
               mirrorCamera 
-                ? 'bg-indigo-950/60 border-indigo-500/40 text-indigo-300' 
-                : 'bg-slate-800/60 border-slate-700 text-slate-400'
+                ? 'bg-indigo-50 border-indigo-300 text-indigo-800' 
+                : 'bg-slate-100 border-slate-200 text-slate-600'
             )}
             title="Toggle Mirror Camera"
           >
-            <Sliders className="h-3.5 w-3.5" />
+            <Sliders className="h-3.5 w-3.5 text-indigo-600" />
             <span className="hidden sm:inline">Mirror</span>
           </button>
 
@@ -790,10 +790,10 @@ export function DeafView({
             onClick={cameraActive ? stopCamera : startCamera}
             disabled={isStartingCamera}
             className={cn(
-              "p-1.5 rounded-xl text-xs flex items-center gap-1.5 border transition-all cursor-pointer",
+              "p-1.5 rounded-xl text-xs flex items-center gap-1.5 border transition-all cursor-pointer font-medium",
               cameraActive 
-                ? 'bg-rose-950/60 border-rose-500/40 text-rose-300 hover:bg-rose-900/60' 
-                : 'bg-emerald-950/60 border-emerald-500/40 text-emerald-300 hover:bg-emerald-900/60'
+                ? 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100' 
+                : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
             )}
           >
             {cameraActive ? <CameraOff className="h-3.5 w-3.5" /> : <Camera className="h-3.5 w-3.5" />}
@@ -804,15 +804,15 @@ export function DeafView({
 
       {/* Hearing User Voice Alert Banner */}
       {isHearingSpeaking && (
-        <div className="bg-emerald-500/20 border-b border-emerald-500/40 px-4 py-1.5 flex items-center justify-between text-xs text-emerald-300 animate-pulse">
+        <div className="bg-emerald-50 border-b border-emerald-200 px-4 py-1.5 flex items-center justify-between text-xs text-emerald-800 animate-pulse">
           <div className="flex items-center gap-2">
-            <BellRing className="h-4 w-4 text-emerald-400 animate-bounce" />
-            <span className="font-semibold">Hearing User Speaking:</span>
-            <span className="italic text-white font-medium truncate max-w-md">
+            <BellRing className="h-4 w-4 text-emerald-600 animate-bounce" />
+            <span className="font-bold">Hearing User Speaking:</span>
+            <span className="italic text-slate-900 font-medium truncate max-w-md">
               "{lastHearingTranscript || 'Listening...'}"
             </span>
           </div>
-          <span className="text-[10px] bg-emerald-500/30 px-2 py-0.5 rounded text-emerald-200">
+          <span className="text-[10px] bg-emerald-100 px-2 py-0.5 rounded text-emerald-800 font-semibold">
             Audio Detected
           </span>
         </div>
@@ -820,21 +820,21 @@ export function DeafView({
 
       {/* Camera Permission / Error Warning Banner */}
       {cameraError && !cameraActive && (
-        <div className="bg-amber-950/40 border-b border-amber-500/40 px-4 py-2 flex items-center justify-between text-xs text-amber-300">
+        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center justify-between text-xs text-amber-800">
           <div className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0" />
+            <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
             <span>{cameraError}</span>
           </div>
           <div className="flex gap-2">
             <button
               onClick={startCamera}
-              className="px-2.5 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-[11px] font-semibold transition-all cursor-pointer"
+              className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[11px] font-semibold transition-all cursor-pointer"
             >
               Retry Camera
             </button>
             <button
               onClick={() => { setSimulationMode(true); setCameraActive(true); }}
-              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30 rounded-lg text-[11px] font-semibold transition-all cursor-pointer"
+              className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-cyan-800 border border-slate-200 rounded-lg text-[11px] font-semibold transition-all cursor-pointer"
             >
               Use Simulation Demo
             </button>
@@ -842,36 +842,36 @@ export function DeafView({
         </div>
       )}
 
-      {/* Aceternity UI: Glowing Effect wrapping the video container */}
+      {/* Glowing Effect wrapping the video container */}
       <div className="p-3 flex-1 flex flex-col justify-center">
         <GlowingEffect
           active={isHearingSpeaking}
           glowColor="rgba(16, 185, 129, 0.8)"
           secondaryColor="rgba(6, 182, 212, 0.6)"
-          className="w-full flex-1 flex items-center justify-center bg-black min-h-[260px] max-h-[380px] lg:max-h-[440px]"
+          className="w-full flex-1 flex items-center justify-center bg-slate-900 min-h-[260px] max-h-[380px] lg:max-h-[440px] rounded-2xl overflow-hidden"
         >
           {/* Lottie Model Loading Overlay */}
           {modelLoading && (
-            <div className="absolute inset-0 z-30 bg-slate-950/90 flex flex-col items-center justify-center gap-3">
+            <div className="absolute inset-0 z-30 bg-white/95 flex flex-col items-center justify-center gap-3">
               <LottieDisplay animationData={handTrackerLottie} className="w-24 h-24" />
-              <p className="text-sm font-medium text-cyan-200">
+              <p className="text-sm font-medium text-slate-800">
                 Loading Google MediaPipe Hand Landmarker...
               </p>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-500">
                 Preparing 21 3D point skeletal tracking engine
               </p>
             </div>
           )}
 
-          {/* Camera inactive overlay with prominent Enable Camera button */}
+          {/* Camera inactive overlay */}
           {!cameraActive && !simulationMode && (
-            <div className="absolute inset-0 z-20 bg-slate-900/90 flex flex-col items-center justify-center gap-4 p-6 text-center">
-              <div className="h-16 w-16 rounded-full bg-slate-800 flex items-center justify-center text-slate-400">
+            <div className="absolute inset-0 z-20 bg-slate-900/95 flex flex-col items-center justify-center gap-4 p-6 text-center">
+              <div className="h-16 w-16 rounded-full bg-slate-800 flex items-center justify-center text-slate-300">
                 <CameraOff className="h-8 w-8" />
               </div>
               <div>
-                <h3 className="text-base font-semibold text-slate-200">Webcam Feed Inactive</h3>
-                <p className="text-xs text-slate-400 max-w-sm mt-1">
+                <h3 className="text-base font-semibold text-white">Webcam Feed Inactive</h3>
+                <p className="text-xs text-slate-300 max-w-sm mt-1">
                   Click 'Enable Camera' to start tracking hand gestures in real-time, or test instantly with the Simulation Demo.
                 </p>
               </div>
@@ -879,14 +879,14 @@ export function DeafView({
                 <button
                   onClick={startCamera}
                   disabled={isStartingCamera}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-600/30 transition-all cursor-pointer flex items-center gap-2"
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs font-semibold shadow-sm transition-all cursor-pointer flex items-center gap-2"
                 >
                   <Camera className="h-4 w-4" />
                   <span>{isStartingCamera ? 'Connecting...' : 'Enable Camera'}</span>
                 </button>
                 <button
                   onClick={() => { setSimulationMode(true); setCameraActive(true); }}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5"
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5"
                 >
                   <Play className="h-3.5 w-3.5" />
                   <span>Run Simulation Demo</span>
@@ -912,30 +912,30 @@ export function DeafView({
 
           {/* HUD Overlay Badges */}
           <div className="absolute top-3 left-3 z-20 flex flex-col gap-1.5 pointer-events-none">
-            <div className="flex items-center gap-2 bg-slate-950/80 backdrop-blur-md border border-cyan-500/40 px-3 py-1.5 rounded-xl shadow-lg">
-              <Sparkles className="h-4 w-4 text-cyan-400 animate-spin" style={{ animationDuration: '4s' }} />
+            <div className="flex items-center gap-2 bg-white/95 backdrop-blur-md border border-slate-200 px-3 py-1.5 rounded-xl shadow-md">
+              <Sparkles className="h-4 w-4 text-indigo-600 animate-spin" style={{ animationDuration: '4s' }} />
               <div>
-                <div className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
+                <div className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">
                   Detected Sign Gesture
                 </div>
-                <div className="text-xs font-bold text-white tracking-wide">
+                <div className="text-xs font-bold text-slate-900 tracking-wide">
                   {detectedGesture}
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 bg-slate-950/70 backdrop-blur-md border border-slate-800 px-2.5 py-1 rounded-lg text-[10px] text-slate-300">
-              <span>Hands: <strong className="text-cyan-400">{handCount}</strong></span>
+            <div className="flex items-center gap-2 bg-white/90 backdrop-blur-md border border-slate-200 px-2.5 py-1 rounded-lg text-[10px] text-slate-700 shadow-sm">
+              <span>Hands: <strong className="text-cyan-700">{handCount}</strong></span>
               <span>•</span>
-              <span>Confidence: <strong className="text-emerald-400">{trackingConfidence}%</strong></span>
+              <span>Confidence: <strong className="text-emerald-600">{trackingConfidence}%</strong></span>
               <span>•</span>
-              <span>Stability: <strong className={gestureStability >= 70 ? "text-emerald-400" : "text-amber-400"}>{gestureStability}%</strong></span>
+              <span>Stability: <strong className={gestureStability >= 70 ? "text-emerald-600" : "text-amber-600"}>{gestureStability}%</strong></span>
             </div>
           </div>
 
-          {/* Live Action Toast Banner (Verifies button responsiveness) */}
+          {/* Live Action Toast Banner */}
           {lastActionSent && (
-            <div className="absolute bottom-4 right-4 z-20 bg-emerald-600/95 backdrop-blur-md text-white px-4 py-2 rounded-xl shadow-2xl flex items-center gap-2 border border-emerald-400/60 animate-bounce">
+            <div className="absolute bottom-4 right-4 z-20 bg-emerald-600 text-white px-4 py-2 rounded-xl shadow-lg flex items-center gap-2 border border-emerald-500 animate-bounce">
               <CheckCircle2 className="h-4 w-4 text-white" />
               <span className="text-xs font-bold">{lastActionSent.action}</span>
             </div>
@@ -943,26 +943,26 @@ export function DeafView({
         </GlowingEffect>
       </div>
 
-      {/* Task 2: Offline NLP (SmolLM2) Sentence Formulation Bar */}
-      <div className="mx-3 mb-2 p-2.5 bg-slate-900/90 border border-indigo-500/30 rounded-2xl flex flex-col lg:flex-row items-center justify-between gap-3">
+      {/* Task 2: Offline NLP Sentence Formulation Bar */}
+      <div className="mx-3 mb-2 p-2.5 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col lg:flex-row items-center justify-between gap-3">
         <div className="flex items-center gap-2.5 w-full lg:w-auto">
-          <div className="p-2 bg-indigo-500/10 rounded-xl border border-indigo-500/20 text-indigo-400 shrink-0">
+          <div className="p-2 bg-indigo-50 rounded-xl border border-indigo-200 text-indigo-600 shrink-0">
             <Cpu className="h-4 w-4" />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-indigo-200">
+              <span className="text-xs font-bold text-slate-800">
                 SmolLM2 Offline NLP Formulation:
               </span>
-              <span className="text-[10px] px-2 py-0.2 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+              <span className="text-[10px] px-2 py-0.2 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
                 {nlpState.ready ? 'Model Cached' : nlpState.status}
               </span>
             </div>
             <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-              <span className="text-[11px] text-slate-400 font-medium">Tokens:</span>
+              <span className="text-[11px] text-slate-500 font-medium">Tokens:</span>
               <AnimatePresence>
                 {rawSignTokens.length === 0 ? (
-                  <span className="text-xs text-slate-500 italic">Perform hand signs to append tokens...</span>
+                  <span className="text-xs text-slate-400 italic">Perform hand signs to append tokens...</span>
                 ) : (
                   rawSignTokens.map((tok, idx) => (
                     <motion.span
@@ -972,10 +972,10 @@ export function DeafView({
                       exit={{ scale: 0.5, opacity: 0 }}
                       transition={{ type: "spring", stiffness: 500, damping: 25 }}
                       className={cn(
-                        "px-2.5 py-0.5 rounded-lg border text-xs font-mono font-semibold transition-all duration-300 shadow-sm",
+                        "px-2.5 py-0.5 rounded-lg border text-xs font-mono font-semibold transition-all duration-300 shadow-xs",
                         justAddedToken === tok && idx === rawSignTokens.length - 1
-                          ? "bg-gradient-to-r from-cyan-500 to-indigo-500 border-cyan-300 text-white ring-2 ring-cyan-400/60 shadow-cyan-500/40 scale-105"
-                          : "bg-slate-800 border-slate-700 text-cyan-300"
+                          ? "bg-gradient-to-r from-cyan-600 to-indigo-600 border-cyan-500 text-white scale-105"
+                          : "bg-white border-slate-200 text-indigo-700"
                       )}
                     >
                       {tok}
@@ -986,7 +986,7 @@ export function DeafView({
               {detectedKeyword && (
                 <button
                   onClick={() => addTokenToSequence(detectedKeyword)}
-                  className="px-2 py-0.5 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-medium cursor-pointer transition-all active:scale-95"
+                  className="px-2 py-0.5 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-medium cursor-pointer transition-all active:scale-95 shadow-xs"
                 >
                   + Add "{detectedKeyword}"
                 </button>
@@ -994,7 +994,7 @@ export function DeafView({
               {rawSignTokens.length > 0 && (
                 <button
                   onClick={handleClearTokens}
-                  className="p-1 rounded-md bg-slate-800 hover:bg-rose-950/60 text-slate-400 hover:text-rose-300 border border-slate-700 hover:border-rose-500/40 text-[10px] transition-all cursor-pointer"
+                  className="p-1 rounded-md bg-white hover:bg-rose-50 text-slate-500 hover:text-rose-600 border border-slate-200 text-[10px] transition-all cursor-pointer"
                   title="Clear tokens"
                 >
                   <Trash2 className="h-3 w-3" />
@@ -1004,7 +1004,7 @@ export function DeafView({
           </div>
         </div>
 
-        {/* Formulated Sentence & Speak Aloud Trigger (Task 1 & Task 3 Input box) */}
+        {/* Formulated Sentence & Speak Aloud Trigger */}
         <div className="flex items-center gap-2 w-full lg:w-auto justify-end flex-wrap sm:flex-nowrap">
           <div className="relative flex-1 sm:w-64 min-w-[200px]">
             <input
@@ -1012,40 +1012,40 @@ export function DeafView({
               value={formulatedSentence}
               onChange={(e) => setFormulatedSentence(e.target.value)}
               placeholder="Formulated sentence appears here..."
-              className="w-full text-xs font-medium text-white bg-slate-950 px-3 py-2 rounded-xl border border-slate-800 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/50 shadow-inner placeholder:text-slate-600 transition-all"
+              className="w-full text-xs font-medium text-slate-900 bg-white px-3 py-2 rounded-xl border border-slate-200 focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600 shadow-xs placeholder:text-slate-400 transition-all"
             />
           </div>
           
           <button
             onClick={handleFormulateSentence}
             disabled={isFormulating || rawSignTokens.length === 0}
-            className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-indigo-300 border border-indigo-500/30 text-xs font-medium flex items-center gap-1 transition-all cursor-pointer shrink-0"
+            className="px-3 py-2 rounded-xl bg-white hover:bg-slate-100 disabled:opacity-40 text-indigo-700 border border-slate-200 text-xs font-medium flex items-center gap-1 transition-all cursor-pointer shrink-0 shadow-xs"
             title="Re-run SmolLM2 / Gemini sentence reconstruction"
           >
             {isFormulating ? <LottieDisplay animationData={aiProcessingLottie} className="w-4 h-4" /> : <Sparkles className="h-3.5 w-3.5" />}
             <span className="hidden sm:inline">{isFormulating ? 'Processing...' : 'Formulate'}</span>
           </button>
 
-          {/* Auto-TTS Toggle (Phase 8 Task 1: Sign -> Text & Audio) */}
+          {/* Auto-TTS Toggle */}
           <button
             onClick={() => setAutoVocalize(prev => !prev)}
             className={cn(
-              "px-2.5 py-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shrink-0",
+              "px-2.5 py-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 shadow-xs",
               autoVocalize
-                ? "bg-emerald-950/70 border-emerald-500/50 text-emerald-300 shadow-sm shadow-emerald-900/40"
-                : "bg-slate-800/80 border-slate-700 text-slate-400"
+                ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                : "bg-white border-slate-200 text-slate-600"
             )}
             title="Automatically vocalize detected signs out loud for hearing users"
           >
-            <Volume2 className={cn("h-3.5 w-3.5", autoVocalize && "text-emerald-400 animate-pulse")} />
+            <Volume2 className={cn("h-3.5 w-3.5", autoVocalize && "text-emerald-600 animate-pulse")} />
             <span>Auto TTS: {autoVocalize ? 'ON' : 'OFF'}</span>
           </button>
 
-          {/* Speak Aloud Button (Wired with TTS & Visual Toast) */}
+          {/* Speak Aloud Button */}
           <button
             onClick={handleSpeakAloud}
             disabled={!formulatedSentence.trim()}
-            className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold shadow-md shadow-indigo-600/30 flex items-center gap-1.5 transition-all transform active:scale-95 cursor-pointer shrink-0"
+            className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all transform active:scale-95 cursor-pointer shrink-0"
             title="Vocalize this formulated sentence to the Hearing User"
           >
             <Volume2 className="h-3.5 w-3.5" />
@@ -1054,12 +1054,12 @@ export function DeafView({
         </div>
       </div>
 
-      {/* Action Buttons with 3D Card Effect (Wired for instant click response) */}
-      <div className="p-3 bg-slate-900 border-t border-slate-800">
+      {/* Action Buttons */}
+      <div className="p-3 bg-slate-50 border-t border-slate-200">
         <div className="flex flex-wrap items-center justify-between gap-3">
           
-          <div className="text-xs text-slate-400 flex items-center gap-1.5">
-            <span className="font-semibold text-slate-300">Deaf User 3D Action Triggers:</span>
+          <div className="text-xs text-slate-500 flex items-center gap-1.5">
+            <span className="font-semibold text-slate-700">Deaf User Action Triggers:</span>
           </div>
 
           <div className="flex items-center gap-3 flex-wrap">
@@ -1074,7 +1074,7 @@ export function DeafView({
                 <CardItem translateZ={25} onClick={() => handleAction('Confirm Receipt')}>
                   <button
                     onClick={(e) => { e.stopPropagation(); handleAction('Confirm Receipt'); }}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-medium text-xs shadow-lg shadow-emerald-900/40 border border-emerald-400/40 transition-all transform active:scale-95 cursor-pointer pointer-events-auto"
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-medium text-xs shadow-sm transition-all transform active:scale-95 cursor-pointer pointer-events-auto"
                   >
                     <CheckCircle2 className="h-4 w-4" />
                     <span>Confirm Receipt</span>
@@ -1093,7 +1093,7 @@ export function DeafView({
                 <CardItem translateZ={25} onClick={() => handleAction('Repeat Request')}>
                   <button
                     onClick={(e) => { e.stopPropagation(); handleAction('Repeat Request'); }}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-medium text-xs shadow-lg shadow-indigo-900/40 border border-indigo-400/40 transition-all transform active:scale-95 cursor-pointer pointer-events-auto"
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-medium text-xs shadow-sm transition-all transform active:scale-95 cursor-pointer pointer-events-auto"
                   >
                     <RefreshCw className="h-4 w-4" />
                     <span>Repeat</span>
@@ -1112,7 +1112,7 @@ export function DeafView({
                 <CardItem translateZ={25} onClick={() => handleAction('Clarify Request')}>
                   <button
                     onClick={(e) => { e.stopPropagation(); handleAction('Clarify Request'); }}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-medium text-xs shadow-lg shadow-amber-900/40 border border-amber-400/40 transition-all transform active:scale-95 cursor-pointer pointer-events-auto"
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-medium text-xs shadow-sm transition-all transform active:scale-95 cursor-pointer pointer-events-auto"
                   >
                     <HelpCircle className="h-4 w-4" />
                     <span>Clarify</span>
@@ -1123,87 +1123,30 @@ export function DeafView({
 
           </div>
 
-          {/* Quick Sign Shortcut Badges (Expanded ISL/ASL Vocabulary - Mobile Responsive) */}
-          <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-400">
-            <span className="text-[11px] text-slate-500">Quick Signs:</span>
-            <button 
-              onClick={() => addTokenToSequence('Hello')}
-              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] transition-colors cursor-pointer"
-            >
-              + Hello 👋
-            </button>
-            <button 
-              onClick={() => addTokenToSequence('Water')}
-              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-blue-300 text-[11px] transition-colors cursor-pointer"
-            >
-              + Water 💧
-            </button>
-            <button 
-              onClick={() => addTokenToSequence('Food')}
-              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 text-[11px] transition-colors cursor-pointer"
-            >
-              + Food 🍽️
-            </button>
-            <button 
-              onClick={() => addTokenToSequence('Hungry')}
-              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-yellow-300 text-[11px] transition-colors cursor-pointer"
-            >
-              + Hungry 🤤
-            </button>
-            <button 
-              onClick={() => addTokenToSequence('Doctor')}
-              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-teal-300 text-[11px] transition-colors cursor-pointer"
-            >
-              + Doctor 🩺
-            </button>
-            <button 
-              onClick={() => addTokenToSequence('Emergency')}
-              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-rose-400 text-[11px] transition-colors cursor-pointer font-bold"
-            >
-              + Emergency 🚨
-            </button>
-            <button 
-              onClick={() => addTokenToSequence('Help')}
-              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 text-[11px] transition-colors cursor-pointer"
-            >
-              + Help 🆘
-            </button>
-            <button 
-              onClick={() => addTokenToSequence('Thank')}
-              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-indigo-300 text-[11px] transition-colors cursor-pointer"
-            >
-              + Thank 🙏
-            </button>
-            <button 
-              onClick={() => addTokenToSequence('Please')}
-              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-purple-300 text-[11px] transition-colors cursor-pointer"
-            >
-              + Please 🤲
-            </button>
-            <button 
-              onClick={() => addTokenToSequence('Yes')}
-              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-300 text-[11px] transition-colors cursor-pointer"
-            >
-              + Yes ✊
-            </button>
-            <button 
-              onClick={() => addTokenToSequence('No')}
-              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-rose-300 text-[11px] transition-colors cursor-pointer"
-            >
-              + No ✌️
-            </button>
-            <button 
-              onClick={() => addTokenToSequence('Stop')}
-              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 text-[11px] transition-colors cursor-pointer"
-            >
-              + Stop ✋
-            </button>
-            <button 
-              onClick={() => addTokenToSequence('Where')}
-              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-sky-300 text-[11px] transition-colors cursor-pointer"
-            >
-              + Where ❓
-            </button>
+          {/* Quick Sign Shortcut Badges */}
+          <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
+            <span className="text-[11px] text-slate-600 font-medium">Quick Signs:</span>
+            {[
+              { label: '+ Hello 👋', kw: 'Hello' },
+              { label: '+ Water 💧', kw: 'Water' },
+              { label: '+ Food 🍽️', kw: 'Food' },
+              { label: '+ Help 🆘', kw: 'Help' },
+              { label: '+ Doctor 🩺', kw: 'Doctor' },
+              { label: '+ Emergency 🚨', kw: 'Emergency' },
+              { label: '+ Where ❓', kw: 'Where' },
+              { label: '+ Thank 🙏', kw: 'Thank' },
+              { label: '+ Yes ✊', kw: 'Yes' },
+              { label: '+ No ✌️', kw: 'No' },
+              { label: '+ Stop ✋', kw: 'Stop' }
+            ].map((b) => (
+              <button 
+                key={b.kw}
+                onClick={() => addTokenToSequence(b.kw)}
+                className="px-2 py-1 rounded-lg bg-white hover:bg-slate-200 border border-slate-200 text-slate-700 text-[11px] font-medium transition-colors cursor-pointer shadow-2xs"
+              >
+                {b.label}
+              </button>
+            ))}
           </div>
 
         </div>

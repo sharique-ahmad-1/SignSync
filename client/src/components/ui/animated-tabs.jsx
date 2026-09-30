@@ -14,7 +14,7 @@ export const AnimatedTabs = ({
   return (
     <div
       className={cn(
-        "flex flex-row items-center justify-start relative overflow-auto sm:overflow-visible no-visible-scrollbar max-w-full w-fit bg-slate-900/90 p-1 rounded-2xl border border-slate-800 shadow-inner",
+        "flex flex-row items-center justify-start relative overflow-auto sm:overflow-visible no-visible-scrollbar max-w-full w-fit bg-slate-100 p-1 rounded-2xl border border-slate-200",
         containerClassName
       )}
     >
@@ -25,7 +25,7 @@ export const AnimatedTabs = ({
             key={tab.value}
             onClick={() => onChange(tab.value)}
             className={cn(
-              "relative px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-200 transition-colors flex items-center gap-1.5 z-10",
+              "relative px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors flex items-center gap-1.5 z-10 cursor-pointer",
               tabClassName,
               isActive && cn("text-white font-bold", activeTabClassName)
             )}
@@ -37,7 +37,7 @@ export const AnimatedTabs = ({
               <motion.span
                 layoutId="activeTabPill"
                 transition={{ type: "spring", bounce: 0.22, duration: 0.6 }}
-                className="absolute inset-0 bg-gradient-to-r from-indigo-600 via-indigo-500 to-indigo-600 rounded-xl shadow-md shadow-indigo-600/30 -z-10"
+                className="absolute inset-0 bg-indigo-600 rounded-xl shadow-sm -z-10"
               />
             )}
             {tab.icon && <span className="shrink-0">{tab.icon}</span>}

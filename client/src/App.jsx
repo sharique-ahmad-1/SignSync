@@ -152,7 +152,7 @@ export default function App() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.3 }}
-            className={`rounded-2xl overflow-hidden border border-slate-800/80 shadow-2xl backdrop-blur-md bg-slate-950/60 transition-all duration-300 ${
+            className={`rounded-2xl overflow-hidden border border-slate-200 shadow-sm bg-white transition-all duration-300 ${
               viewMode === 'deaf' ? 'flex-1 h-full' : 'flex-1 min-h-[360px]'
             }`}
           >
@@ -174,7 +174,7 @@ export default function App() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
             transition={{ duration: 0.3 }}
-            className={`rounded-2xl overflow-hidden border border-slate-800/80 shadow-2xl backdrop-blur-md bg-slate-950/60 transition-all duration-300 ${
+            className={`rounded-2xl overflow-hidden border border-slate-200 shadow-sm bg-white transition-all duration-300 ${
               viewMode === 'hearing' ? 'flex-1 h-full' : 'flex-1 min-h-[360px]'
             }`}
           >
