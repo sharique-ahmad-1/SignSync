@@ -23,6 +23,7 @@ import {
   parseTextToSignGlosses, 
   preloadAvatarAssets 
 } from '../lib/avatarAssets';
+import { extractISLKeywords } from '../lib/smolLM';
 import { MagneticButton, ShinyButton } from './ui/react-bits-micro';
 import { cn } from '../lib/utils';
 
@@ -39,6 +40,7 @@ export function MockAvatar({
   const [isPlaying, setIsPlaying] = useState(true);
   const [playbackSpeed, setPlaybackSpeed] = useState(2400); // 2.4s per sign
   const [glossProgress, setGlossProgress] = useState(0);
+  const [isNlpParsing, setIsNlpParsing] = useState(false);
   const [showDictionary, setShowDictionary] = useState(false);
   const [modelType, setModelType] = useState('Procedural Armature'); // 'Procedural Armature' | 'Verity 3D (.glb)'
   const [modelLoading, setModelLoading] = useState(false);
@@ -51,20 +53,48 @@ export function MockAvatar({
   const timerRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  // Parse speech or input into ISL/ASL Gloss Sequence
+  // Parse speech or input into ISL/ASL Gloss Sequence with SmolLM2 (Task 3)
   useEffect(() => {
     if (!transcribedText || !transcribedText.trim()) return;
 
-    const glosses = parseTextToSignGlosses(transcribedText);
-    if (glosses.length > 0) {
-      setActiveSequence(glosses);
-      setCurrentIndex(0);
-      setIsPlaying(true);
-      preloadAvatarAssets(glosses);
-      if (onSignRecognized) {
-        onSignRecognized(glosses.map(g => g.keyword));
+    let isMounted = true;
+    setIsNlpParsing(true);
+
+    const parseSequence = async () => {
+      // 1. Instant fallback parse using ISL SOV grammar rules for zero-delay response
+      const immediateGlosses = parseTextToSignGlosses(transcribedText);
+      if (isMounted && immediateGlosses.length > 0) {
+        setActiveSequence(immediateGlosses);
+        setCurrentIndex(0);
+        setIsPlaying(true);
+        preloadAvatarAssets(immediateGlosses);
+        if (onSignRecognized) {
+          onSignRecognized(immediateGlosses.map(g => g.keyword));
+        }
       }
-    }
+
+      // 2. Refined keyword extraction via SmolLM2-135M model
+      try {
+        const keywords = await extractISLKeywords(transcribedText);
+        if (isMounted && keywords && keywords.length > 0) {
+          const refinedGlosses = parseTextToSignGlosses(keywords.join(' '));
+          if (refinedGlosses.length > 0) {
+            setActiveSequence(refinedGlosses);
+            preloadAvatarAssets(refinedGlosses);
+          }
+        }
+      } catch (e) {
+        console.warn('[MockAvatar] SmolLM2 keyword extraction notice:', e);
+      } finally {
+        if (isMounted) setIsNlpParsing(false);
+      }
+    };
+
+    parseSequence();
+
+    return () => {
+      isMounted = false;
+    };
   }, [transcribedText, onSignRecognized]);
 
   // Handle Repeat Trigger from Deaf user
@@ -563,9 +593,16 @@ export function MockAvatar({
           <span className="text-xs font-semibold uppercase tracking-wider text-indigo-300 font-heading">
             3D ISL Avatar System
           </span>
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 font-mono">
-            {modelType}
-          </span>
+          {isNlpParsing ? (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 animate-pulse font-mono flex items-center gap-1">
+              <Sparkles className="h-2.5 w-2.5" />
+              SmolLM2 Parsing...
+            </span>
+          ) : (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 font-mono">
+              {modelType}
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-2">

@@ -1,4 +1,5 @@
 import { pipeline, env } from '@xenova/transformers';
+import { reorderToISLGrammar } from './avatarAssets';
 
 // Configure Transformers.js for browser environment
 if (env) {
@@ -117,6 +118,55 @@ export async function formulateGrammarSentence(keywords = []) {
 
   // 2. High-speed intelligent heuristic grammar rules (guaranteed 0ms offline response)
   return heuristicSentenceFormulation(cleanKeywords);
+}
+
+/**
+ * Extracts Indian Sign Language (ISL) keywords and glosses from an English sentence (Task 3)
+ * Uses SmolLM2-135M when available, and falls back to our robust ISL grammar engine.
+ */
+export async function extractISLKeywords(sentence) {
+  if (!sentence || !sentence.trim()) return [];
+
+  // 1. If SmolLM2 model is initialized in browser
+  if (generatorInstance) {
+    try {
+      const prompt = `<|im_start|>system\nYou are an assistive Indian Sign Language (ISL) translator. Extract the sign keywords from the sentence in ISL order (Subject-Object-Verb). Output ONLY comma-separated uppercase keywords like: HELLO, WATER, HELP.<|im_end|>\n<|im_start|>user\nSentence: "${sentence}"<|im_end|>\n<|im_start|>assistant\n`;
+
+      const result = await generatorInstance(prompt, {
+        max_new_tokens: 25,
+        temperature: 0.1,
+        do_sample: false,
+        return_full_text: false
+      });
+
+      if (result && result[0] && result[0].generated_text) {
+        let text = result[0].generated_text.trim();
+        text = text.replace(/<\|.*?\|>/g, '').trim();
+        const extracted = text
+          .split(/[,;\n]+/)
+          .map(k => k.trim().toLowerCase())
+          .filter(Boolean);
+        if (extracted.length > 0) {
+          console.log('[SmolLM2] Extracted ISL keywords:', extracted);
+          return extracted;
+        }
+      }
+    } catch (err) {
+      console.warn('[SmolLM2] Keyword extraction notice (using grammar engine):', err);
+    }
+  }
+
+  // 2. High-speed heuristic ISL grammar re-ordering and stop word elimination
+  const sanitized = sentence
+    .toLowerCase()
+    .replace(/n't/g, ' not')
+    .replace(/'m/g, ' me')
+    .replace(/'re/g, ' are')
+    .replace(/'ve/g, ' have')
+    .replace(/[^\w\s]/g, ' ');
+
+  const words = sanitized.split(/\s+/).filter(Boolean);
+  return reorderToISLGrammar(words);
 }
 
 /**

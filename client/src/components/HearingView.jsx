@@ -8,12 +8,14 @@ import {
   Check, 
   Volume2, 
   Radio, 
-  AlertCircle
+  AlertCircle,
+  Sparkles
 } from 'lucide-react';
 import { MockAvatar } from './MockAvatar';
 import { TextGenerateEffect } from './ui/text-generate-effect';
 import { LottieDisplay } from './ui/lottie-display';
 import { radarListeningLottie } from '../lib/lottieData';
+import { parseTextToSignGlosses } from '../lib/avatarAssets';
 import { cn } from '../lib/utils';
 
 export function HearingView({ 
@@ -252,7 +254,7 @@ export function HearingView({
             {/* Transcript text rendered with Aceternity TextGenerateEffect */}
             <div className="flex-1 py-3 overflow-y-auto text-sm">
               {transcript || interimText ? (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {transcript && (
                     <TextGenerateEffect
                       words={transcript}
@@ -264,6 +266,27 @@ export function HearingView({
                       {interimText}...
                     </span>
                   )}
+                  {/* Real-time ISL Gloss Sequence Chips (Task 3) */}
+                  {(() => {
+                    const glosses = parseTextToSignGlosses(transcript || interimText);
+                    if (!glosses || glosses.length === 0) return null;
+                    return (
+                      <div className="pt-2 border-t border-slate-800/80 flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[10px] text-cyan-400 font-semibold flex items-center gap-1">
+                          <Sparkles className="h-3 w-3 text-cyan-400" />
+                          ISL Sign Glosses:
+                        </span>
+                        {glosses.map((g, idx) => (
+                          <span 
+                            key={`${g.keyword}-${idx}`} 
+                            className="px-2 py-0.5 rounded-md bg-indigo-950/80 border border-indigo-500/40 text-[10px] font-mono text-indigo-300 font-medium shadow-sm"
+                          >
+                            [{g.gloss || g.keyword.toUpperCase()}]
+                          </span>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
               ) : (
                 <div className="h-full flex flex-col items-center justify-center text-center p-4 text-slate-500">
