@@ -337,10 +337,21 @@ export function MockAvatar({
           const bones = extractHumanoidBones(model);
           console.log('[MockAvatar] Extracted Humanoid Bones:', bones);
 
+          // Initialize AnimationMixer with natural idle breathing base
+          const mixer = new THREE.AnimationMixer(model);
+          if (gltf.animations && gltf.animations.length > 0) {
+            const idleClip = THREE.AnimationClip.findByName(gltf.animations, 'idle') || gltf.animations[2] || gltf.animations[0];
+            if (idleClip) {
+              const action = mixer.clipAction(idleClip);
+              action.play();
+            }
+          }
+
           scene.add(model);
           if (threeStateRef.current) {
             threeStateRef.current.humanoidModel = model;
             threeStateRef.current.bones = bones;
+            threeStateRef.current.mixer = mixer;
           }
 
           setModelType('3D Humanoid Avatar (ISL/ASL)');
@@ -372,9 +383,14 @@ export function MockAvatar({
 
       if (threeStateRef.current) {
         const state = threeStateRef.current;
-        const { controls, renderer, scene, camera, bones } = state;
+        const { controls, renderer, scene, camera, bones, mixer } = state;
 
         controls.update();
+
+        // 1. Update Skeletal AnimationMixer (Idle Breathing & Natural Base Posture)
+        if (mixer) {
+          mixer.update(delta);
+        }
 
         const activeSign = state.activeSign || currentSignRef.current || AVATAR_VOCABULARY.hello;
         const glossKey = (activeSign.gloss || activeSign.keyword || '').toUpperCase();
