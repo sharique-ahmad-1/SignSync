@@ -400,10 +400,12 @@ export function MockAvatar({
         rArmRot[2] += Math.sin(time * 2.0) * 0.015;
         lArmRot[2] -= Math.sin(time * 2.0) * 0.015;
 
-        // Mathematical Bone Rotations per Sign Gloss (Task 2)
+        // Comprehensive Bone Rotations per Sign Gloss (Task 1)
         switch (glossKey) {
           case 'HELLO':
-          case 'NAMASTE': {
+          case 'HI':
+          case 'NAMASTE':
+          case 'GREETINGS': {
             // Right arm raises to temple, open hand waves side-to-side in greeting
             const wave = Math.sin(time * 6.0) * 0.35;
             rArmRot = [0.75, 0.2, -0.35];
@@ -415,6 +417,7 @@ export function MockAvatar({
           }
 
           case 'HELP':
+          case 'ASSIST':
           case 'SAHAYATA': {
             // Two-handed sign: Thumbs-up fist on flat left palm, both elevating together
             const lift = Math.sin(time * 3.5) * 0.12;
@@ -431,7 +434,9 @@ export function MockAvatar({
           }
 
           case 'YES':
-          case 'HAAN': {
+          case 'HAAN':
+          case 'AGREE':
+          case 'OK': {
             // Right fist nodding affirmatively up and down
             const nod = Math.sin(time * 6.0) * 0.35;
             rArmRot = [0.75, 0.0, -0.4];
@@ -443,7 +448,8 @@ export function MockAvatar({
           }
 
           case 'NO':
-          case 'NAHI': {
+          case 'NAHI':
+          case 'DISAGREE': {
             // Index & Middle extended in "V", waving side-to-side
             const shake = Math.sin(time * 6.5) * 0.35;
             rArmRot = [0.75, 0.0, -0.4];
@@ -456,7 +462,8 @@ export function MockAvatar({
 
           case 'WATER':
           case 'PAANI':
-          case 'DRINK': {
+          case 'DRINK':
+          case 'PEENA': {
             // W-Handshape brought to chin, tapping twice
             const tap = Math.sin(time * 5.5) * 0.15;
             rArmRot = [0.9, 0.15, -0.3];
@@ -470,7 +477,8 @@ export function MockAvatar({
           case 'FOOD':
           case 'KHANA':
           case 'EAT':
-          case 'KHAO': {
+          case 'KHAO':
+          case 'HUNGRY': {
             // Bunched fingertips brought to mouth and tapping repeatedly
             const eatTap = Math.sin(time * 5.5) * 0.18;
             rArmRot = [0.95, 0.0, -0.35];
@@ -481,7 +489,8 @@ export function MockAvatar({
           }
 
           case 'STOP':
-          case 'RUKO': {
+          case 'RUKO':
+          case 'WAIT': {
             // Vertical open palm pushed firmly forward
             rArmRot = [1.1, 0.0, -0.1];
             rForeArmRot = [-0.15, 0.0, 0.0];
@@ -492,6 +501,7 @@ export function MockAvatar({
 
           case 'THANK YOU':
           case 'THANKS':
+          case 'THANK':
           case 'DHANYAVAAD': {
             // Flat fingertips sweep forward and outward from chin
             const sweep = (Math.sin(time * 3.5) + 1.0) * 0.5; // 0 to 1
@@ -500,6 +510,19 @@ export function MockAvatar({
             rHandRot = [0.25 - sweep * 0.3, 0.0, 0.0];
             rCurls = [0.0, 0.0, 0.0, 0.0, 0.0];
             headRot = [0.1, 0.0, 0.0]; // Grateful bow
+            break;
+          }
+
+          case 'PLEASE':
+          case 'KRIPYA': {
+            // Open hand making circular motion on chest
+            const circleX = Math.sin(time * 4.0) * 0.15;
+            const circleY = Math.cos(time * 4.0) * 0.15;
+            rArmRot = [0.75 + circleY, 0.1, -0.35 + circleX];
+            rForeArmRot = [-1.2, 0.2, 0.0];
+            rHandRot = [0.15, 0.0, 0.0];
+            rCurls = [0.0, 0.0, 0.0, 0.0, 0.0];
+            headRot = [0.08, 0.0, 0.0];
             break;
           }
 
@@ -514,7 +537,9 @@ export function MockAvatar({
           }
 
           case 'DOCTOR':
-          case 'MEDICINE': {
+          case 'MEDICINE':
+          case 'DAWAI':
+          case 'CHIKITSAK': {
             // Left wrist held horizontal, right index & middle fingers checking pulse
             lArmRot = [0.5, 0.25, 0.25];
             lForeArmRot = [-1.1, 0.35, 0.0];
@@ -528,7 +553,9 @@ export function MockAvatar({
           }
 
           case 'EMERGENCY':
-          case 'DANGER': {
+          case 'DANGER':
+          case 'AAPATKAAL':
+          case 'KHATARA': {
             // Both hands alert, urgent upper body posture
             const alert = Math.sin(time * 8.0) * 0.25;
             rArmRot = [0.8 + alert, 0.2, -0.4];
@@ -542,7 +569,9 @@ export function MockAvatar({
           }
 
           case 'WHERE':
-          case 'WHAT': {
+          case 'WHAT':
+          case 'KAHAN':
+          case 'KYA': {
             // Questioning gesture: Both palms up, shrugging slightly
             const shrug = Math.sin(time * 4.5) * 0.15;
             rArmRot = [0.55, 0.15, -0.45];
@@ -627,14 +656,21 @@ export function MockAvatar({
             bones.leftHand.rotation.z = THREE.MathUtils.lerp(bones.leftHand.rotation.z, lHandRot[2], lerpFactor);
           }
 
-          // Helper to curl finger phalanges
+          // Helper to curl finger phalanges naturally on multiple axes
           const applyFingerCurls = (chain, amount, isThumb = false, isLeftHand = false) => {
             chain.forEach((joint, idx) => {
               if (joint) {
-                const angle = (isThumb ? 0.6 : 0.85) * amount;
-                joint.rotation.z = THREE.MathUtils.lerp(joint.rotation.z, isLeftHand ? -angle : angle, lerpFactor);
-                if (isThumb && idx === 0) {
-                  joint.rotation.y = THREE.MathUtils.lerp(joint.rotation.y, (isLeftHand ? -amount : amount) * 0.4, lerpFactor);
+                if (isThumb) {
+                  const thumbAngle = 0.55 * amount;
+                  joint.rotation.z = THREE.MathUtils.lerp(joint.rotation.z, isLeftHand ? -thumbAngle : thumbAngle, lerpFactor);
+                  joint.rotation.x = THREE.MathUtils.lerp(joint.rotation.x, 0.35 * amount, lerpFactor);
+                  if (idx === 0) {
+                    joint.rotation.y = THREE.MathUtils.lerp(joint.rotation.y, (isLeftHand ? -amount : amount) * 0.45, lerpFactor);
+                  }
+                } else {
+                  const fingerAngle = 0.85 * amount;
+                  joint.rotation.z = THREE.MathUtils.lerp(joint.rotation.z, isLeftHand ? -fingerAngle : fingerAngle, lerpFactor);
+                  joint.rotation.x = THREE.MathUtils.lerp(joint.rotation.x, 0.15 * amount, lerpFactor);
                 }
               }
             });
