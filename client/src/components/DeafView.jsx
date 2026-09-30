@@ -244,8 +244,49 @@ export function DeafView({
   // Sliding window buffer for temporal gesture debouncing (Task 1)
   const gestureWindowRef = useRef([]);
   const [gestureStability, setGestureStability] = useState(100);
+  const rawSignTokensRef = useRef([]);
 
-  // Trigger auto-formulation of sign tokens into natural English sentence (Task 1)
+  useEffect(() => {
+    rawSignTokensRef.current = rawSignTokens;
+  }, [rawSignTokens]);
+
+  // Instant human sentence builder for zero-latency UI update (Task 1)
+  const buildImmediateSentence = (tokens) => {
+    if (!tokens || tokens.length === 0) return '';
+    const last = tokens[tokens.length - 1];
+
+    if (tokens.length === 1) {
+      switch (last.toLowerCase()) {
+        case 'hello': return 'Hello! Nice to meet you.';
+        case 'help': return 'Can you please help me?';
+        case 'yes': return 'Yes, that is correct.';
+        case 'no': return 'No, thank you.';
+        case 'water': return 'I need some water, please.';
+        case 'stop': return 'Please stop.';
+        case 'love': return 'I love you!';
+        case 'you': return 'Can you help?';
+        default: return last;
+      }
+    }
+
+    const lower = tokens.map(t => t.toLowerCase());
+    if (lower.includes('hello') && lower.includes('help')) {
+      return 'Hello, can you please help me?';
+    }
+    if (lower.includes('help') && lower.includes('water')) {
+      return 'Please help me get some water.';
+    }
+    if (lower.includes('hello') && lower.includes('water')) {
+      return 'Hello, I need some water please.';
+    }
+    if (lower.includes('yes') && lower.includes('help')) {
+      return 'Yes, I need help.';
+    }
+
+    return tokens.join(' ');
+  };
+
+  // Trigger auto-formulation of sign tokens into natural English sentence with Gemini/SmolLM2
   const triggerAutoFormulation = useCallback(async (tokens) => {
     if (!tokens || tokens.length === 0) {
       setFormulatedSentence('');
@@ -256,7 +297,7 @@ export function DeafView({
       const sentence = await formulateGrammarSentence(tokens);
       if (sentence) {
         setFormulatedSentence(sentence);
-        console.log('[DeafView] Auto-formulated sentence:', sentence);
+        console.log('[DeafView] AI NLP formulated sentence:', sentence);
       }
     } catch (err) {
       console.warn('[DeafView] Auto-formulation error:', err);
@@ -268,21 +309,41 @@ export function DeafView({
   // Commit detected token to UI sequence and trigger pop animation (Task 1 & 3)
   const commitDetectedToken = useCallback((token) => {
     if (!token) return;
-    console.log(`[DeafView] Committing detected token: "${token}" at ${new Date().toLocaleTimeString()}`);
+    console.log(`[DeafView] Auto-committing detected gesture: "${token}" at ${new Date().toLocaleTimeString()}`);
     
     setJustAddedToken(token);
     setTimeout(() => setJustAddedToken(null), 1200);
 
-    setRawSignTokens(prev => {
-      // Avoid immediate sequential duplicates
-      if (prev.length > 0 && prev[prev.length - 1] === token) {
-        return prev;
-      }
-      const updated = [...prev.slice(-4), token];
-      triggerAutoFormulation(updated);
-      return updated;
-    });
-  }, [triggerAutoFormulation]);
+    const currentTokens = rawSignTokensRef.current || [];
+    // Avoid rapid duplicate if same token in last position
+    if (currentTokens.length > 0 && currentTokens[currentTokens.length - 1] === token && (Date.now() - lastCommitTimeRef.current < 2000)) {
+      const immediate = buildImmediateSentence(currentTokens);
+      setFormulatedSentence(immediate);
+      return;
+    }
+
+    const updated = [...currentTokens.slice(-4), token];
+    rawSignTokensRef.current = updated;
+    setRawSignTokens(updated);
+
+    // IMMEDIATELY populate the "Speak Aloud" input box with natural English (Task 1 Fix)
+    const immediateSentence = buildImmediateSentence(updated);
+    setFormulatedSentence(immediateSentence);
+
+    // Trigger AI NLP formulation in background to refine sentence
+    triggerAutoFormulation(updated);
+
+    if (onSendAction) {
+      onSendAction({
+        type: 'detected_token',
+        sender: 'deaf',
+        keyword: token,
+        sentence: immediateSentence,
+        tokens: updated,
+        text: `[Deaf User Signed]: "${token}"`
+      });
+    }
+  }, [triggerAutoFormulation, onSendAction]);
 
   // Dual ISL vs. ASL Rotation-Invariant Euclidean Gesture Classifier (Task 2)
   const classifyGesture = useCallback((landmarks, mode = signLanguageMode) => {
@@ -321,13 +382,23 @@ export function DeafView({
     const isPinch = dist(thumbTip, indexTip) < 0.08;
     const isTwoFingerPinch = isPinch && dist(thumbTip, middleTip) < 0.09;
 
+    // Open Palm / Hello Check: 4 main fingers extended upward/forward (Reliable wave/greeting detection)
+    if (isIndexExt && isMiddleExt && isRingExt && isPinkyExt) {
+      const isThumbTuckedAcross = dist(thumbTip, indexMcp) < 0.065 || dist(thumbTip, middleMcp) < 0.065;
+      if (isThumbTuckedAcross) {
+        return { 
+          gesture: mode === 'ISL' ? 'ISL Flat Hand (Stop / Ruko) ✋' : 'ASL B-Hand (Stop / Wait) ✋', 
+          keyword: 'Stop' 
+        };
+      }
+      return { 
+        gesture: mode === 'ISL' ? 'ISL Open Palm (Namaste / Hello) 🙏' : 'ASL 5-Hand (Hello / Wave) 👋', 
+        keyword: 'Hello' 
+      };
+    }
+
     // 1. ISL Specific Gesture Dictionary (Indian Sign Language)
     if (mode === 'ISL') {
-      // ISL Open Palm (Namaste / Hello)
-      if (isIndexExt && isMiddleExt && isRingExt && isPinkyExt && isThumbExt) {
-        return { gesture: 'ISL Open Palm (Namaste / Hello) 🙏', keyword: 'Hello' };
-      }
-
       // ISL Closed Fist (Yes / Haan)
       if (!isIndexExt && !isMiddleExt && !isRingExt && !isPinkyExt && !isThumbExt) {
         return { gesture: 'ISL Closed Fist (Yes / Haan) ✊', keyword: 'Yes' };
@@ -529,8 +600,8 @@ export function DeafView({
         const stabilityRatio = Math.round((dominantCount / window.length) * 100);
         setGestureStability(stabilityRatio);
 
-        // Stabilize gesture when >= 4 out of 7 frames agree (or small window startup)
-        if (dominantCount >= 4 || window.length < 4) {
+        // Stabilize gesture when >= 3 out of 7 frames agree (or small window startup)
+        if (dominantCount >= 3 || window.length < 3) {
           setDetectedGesture(dominantGesture);
           const matched = window.find(item => item.gesture === dominantGesture && item.keyword);
           if (matched && matched.keyword) {
@@ -548,8 +619,9 @@ export function DeafView({
             const timeSinceLast = now - lastCommitTimeRef.current;
             const isDifferentWord = matched.keyword !== lastCommittedKeywordRef.current;
 
-            // Commit token after holding for 6+ frames (~200ms) with 2.5s debounce
-            if (stableHoldFramesRef.current >= 6 && (isDifferentWord || timeSinceLast > 2500)) {
+            // Commit token after holding for 3+ frames (~80-120ms) with 2s debounce
+            if (stableHoldFramesRef.current >= 3 && (isDifferentWord || timeSinceLast > 2000)) {
+              console.log(`[DeafView] Triggering commitDetectedToken for "${matched.keyword}" (stable ${stableHoldFramesRef.current} frames)`);
               lastCommittedKeywordRef.current = matched.keyword;
               lastCommitTimeRef.current = now;
               stableHoldFramesRef.current = 0;

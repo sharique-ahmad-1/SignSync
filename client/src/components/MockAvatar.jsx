@@ -53,35 +53,49 @@ export function MockAvatar({
   const currentSignRef = useRef(null);
   const timerRef = useRef(null);
   const fileInputRef = useRef(null);
+  const lastProcessedTextRef = useRef('');
 
-  // Parse speech or input into ISL/ASL Gloss Sequence with SmolLM2 (Task 3)
+  // Parse speech or input into ISL/ASL Gloss Sequence (Task 2)
   useEffect(() => {
     if (!transcribedText || !transcribedText.trim()) return;
+    const cleanText = transcribedText.trim();
+    if (cleanText === lastProcessedTextRef.current) return;
 
     let isMounted = true;
     setIsNlpParsing(true);
 
     const parseSequence = async () => {
       // 1. Instant fallback parse using ISL SOV grammar rules for zero-delay response
-      const immediateGlosses = parseTextToSignGlosses(transcribedText);
+      const immediateGlosses = parseTextToSignGlosses(cleanText);
       if (isMounted && immediateGlosses.length > 0) {
-        setActiveSequence(immediateGlosses);
-        setCurrentIndex(0);
-        setIsPlaying(true);
-        preloadAvatarAssets(immediateGlosses);
-        if (onSignRecognized) {
-          onSignRecognized(immediateGlosses.map(g => g.keyword));
+        const newKeys = immediateGlosses.map(g => g.keyword).join(',');
+        const curKeys = activeSequence.map(g => g.keyword).join(',');
+        
+        if (newKeys !== curKeys) {
+          console.log(`[MockAvatar] Setting new gloss sequence for "${cleanText}":`, immediateGlosses.map(g => g.gloss));
+          lastProcessedTextRef.current = cleanText;
+          setActiveSequence(immediateGlosses);
+          setCurrentIndex(0);
+          setIsPlaying(true);
+          preloadAvatarAssets(immediateGlosses);
+          if (onSignRecognized) {
+            onSignRecognized(immediateGlosses.map(g => g.keyword));
+          }
         }
       }
 
       // 2. Refined keyword extraction via SmolLM2-135M model
       try {
-        const keywords = await extractISLKeywords(transcribedText);
+        const keywords = await extractISLKeywords(cleanText);
         if (isMounted && keywords && keywords.length > 0) {
           const refinedGlosses = parseTextToSignGlosses(keywords.join(' '));
           if (refinedGlosses.length > 0) {
-            setActiveSequence(refinedGlosses);
-            preloadAvatarAssets(refinedGlosses);
+            const refinedKeys = refinedGlosses.map(g => g.keyword).join(',');
+            const curKeys = activeSequence.map(g => g.keyword).join(',');
+            if (refinedKeys !== curKeys) {
+              setActiveSequence(refinedGlosses);
+              preloadAvatarAssets(refinedGlosses);
+            }
           }
         }
       } catch (e) {
@@ -338,11 +352,15 @@ export function MockAvatar({
           torso, 
           head, 
           rightShoulder, 
+          rightElbow,
           leftShoulder, 
-          customBones,
-          targetRightRot, 
-          targetLeftRot, 
-          targetHeadRot 
+          leftElbow,
+          customBones = {},
+          targetRightRot = [0.9, -0.2, 0.5], 
+          targetRightElbowRot = [0, -0.6, 0.4],
+          targetLeftRot = [-0.2, 0, 0], 
+          targetLeftElbowRot = [0, 0, 0],
+          targetHeadRot = [0.1, 0, 0] 
         } = threeStateRef.current;
 
         // Update OrbitControls
@@ -364,20 +382,28 @@ export function MockAvatar({
         let rRotX = targetRightRot[0];
         let rRotY = targetRightRot[1];
         let rRotZ = targetRightRot[2];
+        let rElbX = targetRightElbowRot[0];
+        let rElbY = targetRightElbowRot[1];
+        let rElbZ = targetRightElbowRot[2];
+
         let lRotX = targetLeftRot[0];
         let lRotY = targetLeftRot[1];
         let lRotZ = targetLeftRot[2];
+        let lElbX = targetLeftElbowRot[0];
+        let lElbY = targetLeftElbowRot[1];
+        let lElbZ = targetLeftElbowRot[2];
+
         let hRotX = targetHeadRot[0];
         let hRotY = targetHeadRot[1];
 
         if (activeCycle) {
           const osc = Math.sin(time * (activeCycle.freq || 4.0)) * (activeCycle.amp || 0.25);
-          if (activeCycle.joint === 'rightShoulder' || activeCycle.joint === 'both') {
+          if (activeCycle.joint === 'rightShoulder' || activeCycle.joint === 'both' || activeCycle.joint === 'rightArm') {
             if (activeCycle.axis === 'x') rRotX += osc;
             else if (activeCycle.axis === 'y') rRotY += osc;
             else if (activeCycle.axis === 'z') rRotZ += osc;
           }
-          if (activeCycle.joint === 'leftShoulder' || activeCycle.joint === 'both') {
+          if (activeCycle.joint === 'leftShoulder' || activeCycle.joint === 'both' || activeCycle.joint === 'leftArm') {
             if (activeCycle.axis === 'x') lRotX += osc;
             else if (activeCycle.axis === 'y') lRotY -= osc;
             else if (activeCycle.axis === 'z') lRotZ -= osc;
@@ -389,34 +415,54 @@ export function MockAvatar({
 
           if (activeCycle.secondary) {
             const secOsc = Math.sin(time * (activeCycle.secondary.freq || 4.0)) * (activeCycle.secondary.amp || 0.2);
-            if (activeCycle.secondary.joint === 'rightElbow' && rightElbow) {
-              rightElbow.rotation.x = THREE.MathUtils.lerp(rightElbow.rotation.x, secOsc, 0.1);
-            }
-            if (activeCycle.secondary.joint === 'leftElbow' && leftElbow) {
-              leftElbow.rotation.x = THREE.MathUtils.lerp(leftElbow.rotation.x, secOsc, 0.1);
-            }
+            rElbX += secOsc;
           }
         }
 
         // Apply smooth interpolation towards posture + signing cycles
-        rightShoulder.rotation.x = THREE.MathUtils.lerp(rightShoulder.rotation.x, rRotX, 0.1);
-        rightShoulder.rotation.y = THREE.MathUtils.lerp(rightShoulder.rotation.y, rRotY, 0.1);
-        rightShoulder.rotation.z = THREE.MathUtils.lerp(rightShoulder.rotation.z, rRotZ, 0.1);
+        rightShoulder.rotation.x = THREE.MathUtils.lerp(rightShoulder.rotation.x, rRotX, 0.12);
+        rightShoulder.rotation.y = THREE.MathUtils.lerp(rightShoulder.rotation.y, rRotY, 0.12);
+        rightShoulder.rotation.z = THREE.MathUtils.lerp(rightShoulder.rotation.z, rRotZ, 0.12);
 
-        leftShoulder.rotation.x = THREE.MathUtils.lerp(leftShoulder.rotation.x, lRotX, 0.1);
-        leftShoulder.rotation.y = THREE.MathUtils.lerp(leftShoulder.rotation.y, lRotY, 0.1);
-        leftShoulder.rotation.z = THREE.MathUtils.lerp(leftShoulder.rotation.z, lRotZ, 0.1);
+        if (rightElbow) {
+          rightElbow.rotation.x = THREE.MathUtils.lerp(rightElbow.rotation.x, rElbX, 0.12);
+          rightElbow.rotation.y = THREE.MathUtils.lerp(rightElbow.rotation.y, rElbY, 0.12);
+          rightElbow.rotation.z = THREE.MathUtils.lerp(rightElbow.rotation.z, rElbZ, 0.12);
+        }
 
-        head.rotation.x = THREE.MathUtils.lerp(head.rotation.x, hRotX, 0.1);
-        head.rotation.y = THREE.MathUtils.lerp(head.rotation.y, hRotY, 0.1);
+        leftShoulder.rotation.x = THREE.MathUtils.lerp(leftShoulder.rotation.x, lRotX, 0.12);
+        leftShoulder.rotation.y = THREE.MathUtils.lerp(leftShoulder.rotation.y, lRotY, 0.12);
+        leftShoulder.rotation.z = THREE.MathUtils.lerp(leftShoulder.rotation.z, lRotZ, 0.12);
+
+        if (leftElbow) {
+          leftElbow.rotation.x = THREE.MathUtils.lerp(leftElbow.rotation.x, lElbX, 0.12);
+          leftElbow.rotation.y = THREE.MathUtils.lerp(leftElbow.rotation.y, lElbY, 0.12);
+          leftElbow.rotation.z = THREE.MathUtils.lerp(leftElbow.rotation.z, lElbZ, 0.12);
+        }
+
+        head.rotation.x = THREE.MathUtils.lerp(head.rotation.x, hRotX, 0.12);
+        head.rotation.y = THREE.MathUtils.lerp(head.rotation.y, hRotY, 0.12);
 
         // If custom bones exist (e.g. from Verity model)
         if (customBones.rightArm) {
-          customBones.rightArm.rotation.x = THREE.MathUtils.lerp(customBones.rightArm.rotation.x, rRotX, 0.1);
-          customBones.rightArm.rotation.z = THREE.MathUtils.lerp(customBones.rightArm.rotation.z, rRotZ, 0.1);
+          customBones.rightArm.rotation.x = THREE.MathUtils.lerp(customBones.rightArm.rotation.x, rRotX, 0.12);
+          customBones.rightArm.rotation.y = THREE.MathUtils.lerp(customBones.rightArm.rotation.y, rRotY, 0.12);
+          customBones.rightArm.rotation.z = THREE.MathUtils.lerp(customBones.rightArm.rotation.z, rRotZ, 0.12);
+        }
+        if (customBones.rightForearm && rightElbow) {
+          customBones.rightForearm.rotation.x = THREE.MathUtils.lerp(customBones.rightForearm.rotation.x, rElbX, 0.12);
         }
         if (customBones.leftArm) {
-          customBones.leftArm.rotation.x = THREE.MathUtils.lerp(customBones.leftArm.rotation.x, lRotX, 0.1);
+          customBones.leftArm.rotation.x = THREE.MathUtils.lerp(customBones.leftArm.rotation.x, lRotX, 0.12);
+          customBones.leftArm.rotation.y = THREE.MathUtils.lerp(customBones.leftArm.rotation.y, lRotY, 0.12);
+          customBones.leftArm.rotation.z = THREE.MathUtils.lerp(customBones.leftArm.rotation.z, lRotZ, 0.12);
+        }
+        if (customBones.leftForearm && leftElbow) {
+          customBones.leftForearm.rotation.x = THREE.MathUtils.lerp(customBones.leftForearm.rotation.x, lElbX, 0.12);
+        }
+        if (customBones.head) {
+          customBones.head.rotation.x = THREE.MathUtils.lerp(customBones.head.rotation.x, hRotX, 0.12);
+          customBones.head.rotation.y = THREE.MathUtils.lerp(customBones.head.rotation.y, hRotY, 0.12);
         }
 
         renderer.render(scene, camera);
@@ -549,15 +595,21 @@ export function MockAvatar({
 
     if (!threeStateRef.current) return;
 
-    const pose = currentSign.bonePose || {
-      rightArm: [0.8, -0.2, 0.4],
-      leftArm: [-0.2, 0, 0],
-      head: [0.1, 0, 0]
-    };
+    const pose = currentSign.bonePose || {};
 
-    threeStateRef.current.targetRightRot = pose.rightArm || [0, 0, 0];
-    threeStateRef.current.targetLeftRot = pose.leftArm || [0, 0, 0];
-    threeStateRef.current.targetHeadRot = pose.head || [0, 0, 0];
+    const rShoulder = pose.rightShoulder || pose.rightArm || [0.9, -0.2, 0.5];
+    const rElbow = pose.rightElbow || [0, -0.6, 0.4];
+    const lShoulder = pose.leftShoulder || pose.leftArm || [-0.2, 0, 0];
+    const lElbow = pose.leftElbow || [0, 0, 0];
+    const headRot = pose.head || [0.1, 0, 0];
+
+    threeStateRef.current.targetRightRot = rShoulder;
+    threeStateRef.current.targetRightElbowRot = rElbow;
+    threeStateRef.current.targetLeftRot = lShoulder;
+    threeStateRef.current.targetLeftElbowRot = lElbow;
+    threeStateRef.current.targetHeadRot = headRot;
+
+    console.log(`[MockAvatar] 3D Animation triggered for gloss "${currentSign.gloss}":`, { rShoulder, rElbow });
   }, [currentSign]);
 
   // Synchronized progress countdown for active sign gloss (Task 2)

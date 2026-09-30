@@ -482,6 +482,12 @@ export function parseTextToSignGlosses(rawText) {
     .replace(/'re/g, ' are')
     .replace(/'ve/g, ' have')
     .replace(/'s/g, '')
+    .replace(/\bhi\b/g, 'hello')
+    .replace(/\bhey\b/g, 'hello')
+    .replace(/\bi am\b/g, 'me')
+    .replace(/\bi'm\b/g, 'me')
+    .replace(/\bi\b/g, 'me')
+    .replace(/\bmy\b/g, 'me')
     .replace(/[^\w\s]/g, ' ');
 
   const rawWords = sanitized.split(/\s+/).filter(Boolean);
@@ -495,28 +501,31 @@ export function parseTextToSignGlosses(rawText) {
         ...AVATAR_VOCABULARY[word],
         type: 'word'
       });
-    } else if (word.length <= 4) {
-      // Fingerspelling fallback for short unmapped words (from SignFlow architecture)
+    } else if (word.length <= 10) {
+      // Fingerspelling fallback for names and unmapped words (e.g. "Sharique")
       for (const char of word) {
-        matchedGlosses.push({
-          keyword: char.toUpperCase(),
-          gloss: char.toUpperCase(),
-          label: `Letter ${char.toUpperCase()}`,
-          hindi: char.toUpperCase(),
-          category: 'Fingerspelling',
-          handShape: `Letter ${char.toUpperCase()} Posture`,
-          durationMs: 1400,
-          description: `ISL Fingerspelling posture for letter ${char.toUpperCase()}`,
-          videoUrl: 'https://media.giphy.com/media/26gsjCZpPolPr3sBy/giphy.gif',
-          bonePose: {
-            rightShoulder: [0.8, 0, 0.4],
-            rightElbow: [0, -0.5, 0.3],
-            leftShoulder: [-0.2, 0, 0],
-            head: [0, 0, 0]
-          },
-          cycle: { joint: 'rightShoulder', axis: 'x', freq: 2, amp: 0.1 },
-          type: 'letter'
-        });
+        if (/[a-z0-9]/i.test(char)) {
+          matchedGlosses.push({
+            keyword: char.toUpperCase(),
+            gloss: char.toUpperCase(),
+            label: `Letter ${char.toUpperCase()}`,
+            hindi: char.toUpperCase(),
+            category: 'Fingerspelling',
+            handShape: `Letter ${char.toUpperCase()} Posture`,
+            durationMs: 1200,
+            description: `ISL Fingerspelling posture for letter ${char.toUpperCase()}`,
+            videoUrl: 'https://media.giphy.com/media/26gsjCZpPolPr3sBy/giphy.gif',
+            bonePose: {
+              rightShoulder: [0.85, 0.05, 0.45],
+              rightElbow: [0, -0.6, 0.35],
+              leftShoulder: [-0.2, 0, 0],
+              leftElbow: [0, 0, 0],
+              head: [0.05, 0, 0]
+            },
+            cycle: { joint: 'rightShoulder', axis: 'x', freq: 3, amp: 0.12 },
+            type: 'letter'
+          });
+        }
       }
     }
   }
