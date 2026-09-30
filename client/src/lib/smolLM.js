@@ -91,7 +91,25 @@ export async function formulateGrammarSentence(keywords = []) {
   const cleanKeywords = keywords.map(k => String(k).trim()).filter(Boolean);
   if (cleanKeywords.length === 0) return '';
 
-  // 1. If SmolLM2 model is initialized, run local transformer inference
+  // 1. Try Google Gemini API on backend first (Tier 1: Cloud Intelligence)
+  try {
+    const res = await fetch('/api/gemini/formulate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tokens: cleanKeywords })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.sentence && data.source === 'gemini') {
+        console.log('[NLP] Sentence formulated via Google Gemini 1.5 Flash:', data.sentence);
+        return data.sentence;
+      }
+    }
+  } catch (apiErr) {
+    // Offline / server unavailable fallback to local models
+  }
+
+  // 2. If SmolLM2 model is initialized, run local transformer inference (Tier 2: Offline Transformer)
   if (generatorInstance) {
     try {
       const prompt = `<|im_start|>system\nYou are an assistive sign language interpreter. Convert the sign language keywords into one natural, fluent English sentence. Output ONLY the sentence without commentary.<|im_end|>\n<|im_start|>user\nSign keywords: ${cleanKeywords.join(', ')}<|im_end|>\n<|im_start|>assistant\n`;
@@ -116,18 +134,36 @@ export async function formulateGrammarSentence(keywords = []) {
     }
   }
 
-  // 2. High-speed intelligent heuristic grammar rules (guaranteed 0ms offline response)
+  // 3. High-speed intelligent heuristic grammar rules (guaranteed 0ms offline response)
   return heuristicSentenceFormulation(cleanKeywords);
 }
 
 /**
  * Extracts Indian Sign Language (ISL) keywords and glosses from an English sentence (Task 3)
- * Uses SmolLM2-135M when available, and falls back to our robust ISL grammar engine.
+ * Uses Google Gemini 1.5 Flash when available, with SmolLM2-135M and grammar engine fallbacks.
  */
 export async function extractISLKeywords(sentence) {
   if (!sentence || !sentence.trim()) return [];
 
-  // 1. If SmolLM2 model is initialized in browser
+  // 1. Try Google Gemini API on backend first (Tier 1: Cloud Intelligence)
+  try {
+    const res = await fetch('/api/gemini/gloss', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: sentence })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.keywords && data.keywords.length > 0 && data.source === 'gemini') {
+        console.log('[NLP] ISL keywords extracted via Google Gemini 1.5 Flash:', data.keywords);
+        return data.keywords.map(k => k.toLowerCase());
+      }
+    }
+  } catch (apiErr) {
+    // Offline / fallback to local models
+  }
+
+  // 2. If SmolLM2 model is initialized in browser (Tier 2: Offline Transformer)
   if (generatorInstance) {
     try {
       const prompt = `<|im_start|>system\nYou are an assistive Indian Sign Language (ISL) translator. Extract the sign keywords from the sentence in ISL order (Subject-Object-Verb). Output ONLY comma-separated uppercase keywords like: HELLO, WATER, HELP.<|im_end|>\n<|im_start|>user\nSentence: "${sentence}"<|im_end|>\n<|im_start|>assistant\n`;
