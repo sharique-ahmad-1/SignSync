@@ -31,13 +31,14 @@ export function MockAvatar({
   repeatTrigger, 
   onSignRecognized 
 }) {
-  const [renderMode, setRenderMode] = useState('3d'); // '3d' | 'video'
+  const [renderMode, setRenderMode] = useState('dual'); // 'dual' | '3d' | 'video'
   const [activeSequence, setActiveSequence] = useState([
     { keyword: 'hello', ...AVATAR_VOCABULARY.hello }
   ]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
   const [playbackSpeed, setPlaybackSpeed] = useState(2400); // 2.4s per sign
+  const [glossProgress, setGlossProgress] = useState(0);
   const [showDictionary, setShowDictionary] = useState(false);
   const [modelType, setModelType] = useState('Procedural Armature'); // 'Procedural Armature' | 'Verity 3D (.glb)'
   const [modelLoading, setModelLoading] = useState(false);
@@ -46,6 +47,7 @@ export function MockAvatar({
   // Three.js Canvas & Scene References
   const mountRef = useRef(null);
   const threeStateRef = useRef(null);
+  const currentSignRef = useRef(null);
   const timerRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -320,27 +322,70 @@ export function MockAvatar({
           mixer.update(delta);
         }
 
-        // Apply procedural bone interpolation towards target sign posture
+        // Apply breathing idle motion
         torso.scale.y = 1 + Math.sin(time * 2) * 0.015;
         torso.scale.x = 1 + Math.sin(time * 2) * 0.015;
 
-        rightShoulder.rotation.x = THREE.MathUtils.lerp(rightShoulder.rotation.x, targetRightRot[0] + Math.sin(time * 3) * 0.05, 0.08);
-        rightShoulder.rotation.y = THREE.MathUtils.lerp(rightShoulder.rotation.y, targetRightRot[1], 0.08);
-        rightShoulder.rotation.z = THREE.MathUtils.lerp(rightShoulder.rotation.z, targetRightRot[2], 0.08);
+        // Dynamic ISL signing cycle oscillations (Task 2)
+        const activeSign = currentSignRef.current;
+        const activeCycle = activeSign?.cycle;
 
-        leftShoulder.rotation.x = THREE.MathUtils.lerp(leftShoulder.rotation.x, targetLeftRot[0], 0.08);
-        leftShoulder.rotation.y = THREE.MathUtils.lerp(leftShoulder.rotation.y, targetLeftRot[1], 0.08);
-        leftShoulder.rotation.z = THREE.MathUtils.lerp(leftShoulder.rotation.z, targetLeftRot[2], 0.08);
+        let rRotX = targetRightRot[0];
+        let rRotY = targetRightRot[1];
+        let rRotZ = targetRightRot[2];
+        let lRotX = targetLeftRot[0];
+        let lRotY = targetLeftRot[1];
+        let lRotZ = targetLeftRot[2];
+        let hRotX = targetHeadRot[0];
+        let hRotY = targetHeadRot[1];
 
-        head.rotation.x = THREE.MathUtils.lerp(head.rotation.x, targetHeadRot[0], 0.08);
-        head.rotation.y = THREE.MathUtils.lerp(head.rotation.y, targetHeadRot[1] + Math.sin(time) * 0.03, 0.08);
+        if (activeCycle) {
+          const osc = Math.sin(time * (activeCycle.freq || 4.0)) * (activeCycle.amp || 0.25);
+          if (activeCycle.joint === 'rightShoulder' || activeCycle.joint === 'both') {
+            if (activeCycle.axis === 'x') rRotX += osc;
+            else if (activeCycle.axis === 'y') rRotY += osc;
+            else if (activeCycle.axis === 'z') rRotZ += osc;
+          }
+          if (activeCycle.joint === 'leftShoulder' || activeCycle.joint === 'both') {
+            if (activeCycle.axis === 'x') lRotX += osc;
+            else if (activeCycle.axis === 'y') lRotY -= osc;
+            else if (activeCycle.axis === 'z') lRotZ -= osc;
+          }
+          if (activeCycle.joint === 'head') {
+            if (activeCycle.axis === 'x') hRotX += osc;
+            else if (activeCycle.axis === 'y') hRotY += osc;
+          }
+
+          if (activeCycle.secondary) {
+            const secOsc = Math.sin(time * (activeCycle.secondary.freq || 4.0)) * (activeCycle.secondary.amp || 0.2);
+            if (activeCycle.secondary.joint === 'rightElbow' && rightElbow) {
+              rightElbow.rotation.x = THREE.MathUtils.lerp(rightElbow.rotation.x, secOsc, 0.1);
+            }
+            if (activeCycle.secondary.joint === 'leftElbow' && leftElbow) {
+              leftElbow.rotation.x = THREE.MathUtils.lerp(leftElbow.rotation.x, secOsc, 0.1);
+            }
+          }
+        }
+
+        // Apply smooth interpolation towards posture + signing cycles
+        rightShoulder.rotation.x = THREE.MathUtils.lerp(rightShoulder.rotation.x, rRotX, 0.1);
+        rightShoulder.rotation.y = THREE.MathUtils.lerp(rightShoulder.rotation.y, rRotY, 0.1);
+        rightShoulder.rotation.z = THREE.MathUtils.lerp(rightShoulder.rotation.z, rRotZ, 0.1);
+
+        leftShoulder.rotation.x = THREE.MathUtils.lerp(leftShoulder.rotation.x, lRotX, 0.1);
+        leftShoulder.rotation.y = THREE.MathUtils.lerp(leftShoulder.rotation.y, lRotY, 0.1);
+        leftShoulder.rotation.z = THREE.MathUtils.lerp(leftShoulder.rotation.z, lRotZ, 0.1);
+
+        head.rotation.x = THREE.MathUtils.lerp(head.rotation.x, hRotX, 0.1);
+        head.rotation.y = THREE.MathUtils.lerp(head.rotation.y, hRotY, 0.1);
 
         // If custom bones exist (e.g. from Verity model)
         if (customBones.rightArm) {
-          customBones.rightArm.rotation.x = THREE.MathUtils.lerp(customBones.rightArm.rotation.x, targetRightRot[0], 0.08);
+          customBones.rightArm.rotation.x = THREE.MathUtils.lerp(customBones.rightArm.rotation.x, rRotX, 0.1);
+          customBones.rightArm.rotation.z = THREE.MathUtils.lerp(customBones.rightArm.rotation.z, rRotZ, 0.1);
         }
         if (customBones.leftArm) {
-          customBones.leftArm.rotation.x = THREE.MathUtils.lerp(customBones.leftArm.rotation.x, targetLeftRot[0], 0.08);
+          customBones.leftArm.rotation.x = THREE.MathUtils.lerp(customBones.leftArm.rotation.x, lRotX, 0.1);
         }
 
         renderer.render(scene, camera);
@@ -466,9 +511,12 @@ export function MockAvatar({
     }
   };
 
-  // Update 3D Target Pose when currentSign changes
+  // Update 3D Target Pose and cache reference when currentSign changes
   useEffect(() => {
-    if (!threeStateRef.current || !currentSign) return;
+    if (!currentSign) return;
+    currentSignRef.current = currentSign;
+
+    if (!threeStateRef.current) return;
 
     const pose = currentSign.bonePose || {
       rightArm: [0.8, -0.2, 0.4],
@@ -481,6 +529,23 @@ export function MockAvatar({
     threeStateRef.current.targetHeadRot = pose.head || [0, 0, 0];
   }, [currentSign]);
 
+  // Synchronized progress countdown for active sign gloss (Task 2)
+  useEffect(() => {
+    if (!isPlaying) return;
+    setGlossProgress(0);
+    const start = performance.now();
+    const duration = currentSign?.durationMs || playbackSpeed;
+
+    const interval = setInterval(() => {
+      const elapsed = performance.now() - start;
+      const pct = Math.min(100, Math.round((elapsed / duration) * 100));
+      setGlossProgress(pct);
+      if (pct >= 100) clearInterval(interval);
+    }, 40);
+
+    return () => clearInterval(interval);
+  }, [currentIndex, isPlaying, currentSign, playbackSpeed]);
+
   const handleManualSelect = (keyword) => {
     const item = AVATAR_VOCABULARY[keyword] || AVATAR_VOCABULARY.hello;
     setActiveSequence([{ keyword, ...item }]);
@@ -491,7 +556,7 @@ export function MockAvatar({
   return (
     <div className="flex flex-col h-full bg-slate-900/60 rounded-2xl border border-slate-800 p-4 transition-all">
       
-      {/* Component Header with 3D / Video Switcher */}
+      {/* Component Header with 3D / Dual / Video Switcher */}
       <div className="flex flex-wrap items-center justify-between pb-3 border-b border-slate-800/80 gap-2">
         <div className="flex items-center gap-2">
           <div className="h-2 w-2 rounded-full bg-indigo-400 animate-pulse" />
@@ -504,8 +569,21 @@ export function MockAvatar({
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Mode Switcher: 3D WebGL vs Video Clip */}
+          {/* Mode Switcher: Dual Hybrid vs 3D WebGL vs Video Clip */}
           <div className="flex items-center bg-slate-950 p-0.5 rounded-xl border border-slate-800 text-[11px]">
+            <button
+              onClick={() => setRenderMode('dual')}
+              className={cn(
+                "px-2.5 py-1 rounded-lg font-medium flex items-center gap-1.5 transition-all cursor-pointer",
+                renderMode === 'dual'
+                  ? "bg-indigo-600 text-white shadow-sm"
+                  : "text-slate-400 hover:text-slate-200"
+              )}
+              title="Dual Mode: 3D Model + Verified ISL Clip Inset"
+            >
+              <Layers className="h-3 w-3 text-cyan-300" />
+              <span>Dual Hybrid</span>
+            </button>
             <button
               onClick={() => setRenderMode('3d')}
               className={cn(
@@ -516,7 +594,7 @@ export function MockAvatar({
               )}
             >
               <Box className="h-3 w-3" />
-              <span>3D Avatar</span>
+              <span>3D Model</span>
             </button>
             <button
               onClick={() => setRenderMode('video')}
@@ -528,7 +606,7 @@ export function MockAvatar({
               )}
             >
               <Video className="h-3 w-3" />
-              <span>Gesture Clip</span>
+              <span>Sign Clip</span>
             </button>
           </div>
 
@@ -568,31 +646,48 @@ export function MockAvatar({
       {/* Main Avatar Stage */}
       <div className="flex-1 flex flex-col md:flex-row gap-4 mt-3">
         
-        {/* Visual Stage Container (Three.js WebGL 3D Canvas) */}
-        <div className="relative flex-1 bg-slate-950 rounded-xl border border-slate-800 flex flex-col items-center justify-center overflow-hidden min-h-[240px]">
+        {/* Visual Stage Container (Three.js WebGL 3D Canvas + Dual PIP) */}
+        <div className="relative flex-1 bg-slate-950 rounded-xl border border-slate-800 flex flex-col items-center justify-center overflow-hidden min-h-[260px]">
           
-          {/* Progress Sequence Counter */}
-          {activeSequence.length > 1 && (
-            <div className="absolute top-3 left-3 z-20 flex items-center gap-1 bg-slate-900/90 border border-slate-700 px-2.5 py-1 rounded-lg text-[10px] text-slate-300 shadow-lg">
-              <span className="font-semibold text-indigo-400">Gloss {currentIndex + 1}</span>
-              <span>/</span>
-              <span>{activeSequence.length}</span>
-            </div>
-          )}
+          {/* Real-Time Gloss Countdown Progress Bar */}
+          <div className="absolute top-0 inset-x-0 h-1 bg-slate-800/80 z-30 overflow-hidden">
+            <div 
+              className="h-full bg-gradient-to-r from-indigo-500 via-cyan-400 to-emerald-400 transition-all duration-75 ease-linear"
+              style={{ width: `${glossProgress}%` }}
+            />
+          </div>
+
+          {/* Top-Left Progress Sequence Counter & Badges */}
+          <div className="absolute top-3 left-3 z-20 flex flex-col gap-1.5 pointer-events-none">
+            {activeSequence.length > 1 && (
+              <div className="flex items-center gap-1.5 bg-slate-900/90 border border-slate-700 px-2.5 py-1 rounded-lg text-[10px] text-slate-300 shadow-lg">
+                <span className="font-semibold text-indigo-400">Gloss {currentIndex + 1}</span>
+                <span>/</span>
+                <span>{activeSequence.length}</span>
+                <span className="text-slate-500">•</span>
+                <span className="text-cyan-300 font-mono">{Math.round((currentSign?.durationMs || playbackSpeed) / 1000 * 10) / 10}s</span>
+              </div>
+            )}
+            {currentSign.handShape && (
+              <div className="bg-slate-900/80 border border-cyan-500/30 px-2.5 py-0.5 rounded-lg text-[10px] text-cyan-300 font-medium">
+                Hashta: {currentSign.handShape}
+              </div>
+            )}
+          </div>
 
           {/* Orbit Controls Hint & Reset Button */}
-          {renderMode === '3d' && (
+          {['3d', 'dual'].includes(renderMode) && (
             <div className="absolute top-3 right-3 z-20 flex items-center gap-2">
               <button
                 onClick={handleResetCamera}
-                className="p-1.5 rounded-lg bg-slate-900/80 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-700/80 text-[10px] flex items-center gap-1 transition-all cursor-pointer"
+                className="p-1.5 rounded-lg bg-slate-900/80 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-700/80 text-[10px] flex items-center gap-1 transition-all cursor-pointer pointer-events-auto"
                 title="Reset Camera View"
               >
                 <Rotate3d className="h-3 w-3 text-cyan-400" />
                 <span className="hidden sm:inline">Reset View</span>
               </button>
               <div className="text-[10px] px-2 py-0.5 rounded-full border bg-indigo-500/10 text-indigo-300 border-indigo-500/30">
-                {currentSign.category || 'ISL Gesture'}
+                {currentSign.hindi ? `${currentSign.hindi} (${currentSign.category})` : currentSign.category}
               </div>
             </div>
           )}
@@ -605,23 +700,48 @@ export function MockAvatar({
             </div>
           )}
 
-          {/* Mode 1: 3D WebGL Canvas */}
+          {/* 3D WebGL Canvas (Active in '3d' and 'dual' modes) */}
           <div 
             ref={mountRef} 
             className={cn(
-              "w-full h-full min-h-[240px] transition-opacity duration-300 flex items-center justify-center cursor-grab active:cursor-grabbing",
-              renderMode === '3d' ? 'opacity-100' : 'hidden'
+              "w-full h-full min-h-[260px] transition-opacity duration-300 flex items-center justify-center cursor-grab active:cursor-grabbing",
+              renderMode !== 'video' ? 'opacity-100' : 'hidden'
             )}
           />
 
-          {/* Mode 2: HD Gesture Clip */}
+          {/* Dual Mode: Picture-in-Picture Floating Sign Demo Inset */}
+          {renderMode === 'dual' && currentSign.videoUrl && (
+            <div className="absolute bottom-14 right-3 z-20 w-32 sm:w-40 bg-slate-950/90 backdrop-blur-md rounded-2xl border border-indigo-500/40 p-2 shadow-2xl flex flex-col items-center animate-fadeIn pointer-events-auto">
+              <div className="flex items-center justify-between w-full pb-1 mb-1 border-b border-slate-800 text-[10px]">
+                <span className="font-semibold text-cyan-300 text-[10px]">ISL Sign Demo</span>
+                <span className="text-[9px] font-mono text-emerald-400">HD GIF</span>
+              </div>
+              <div className="w-full h-20 sm:h-24 overflow-hidden rounded-xl bg-black flex items-center justify-center">
+                <img
+                  key={currentSign.videoUrl}
+                  src={currentSign.videoUrl}
+                  alt={`ISL Sign for ${currentSign.label}`}
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <div className="text-[9px] text-slate-400 mt-1 truncate w-full text-center font-mono">
+                [{currentSign.gloss}] {currentSign.hindi || ''}
+              </div>
+            </div>
+          )}
+
+          {/* Mode: Video Only Stage */}
           {renderMode === 'video' && (
-            <div className="relative w-48 h-48 flex items-center justify-center p-2">
+            <div className="relative w-64 h-64 flex flex-col items-center justify-center p-3 animate-fadeIn">
               <img
+                key={currentSign.videoUrl}
                 src={currentSign.videoUrl || 'https://media.giphy.com/media/dzaUX7CAG0Ihi/giphy.gif'}
                 alt={`ISL Sign for ${currentSign.label}`}
-                className="w-full h-full object-contain rounded-xl shadow-md"
+                className="w-full h-full object-contain rounded-2xl shadow-xl border border-cyan-500/30"
               />
+              <div className="mt-2 text-xs text-cyan-300 font-semibold">
+                {currentSign.handShape || 'ISL Standard Gesture'}
+              </div>
             </div>
           )}
 
@@ -632,7 +752,7 @@ export function MockAvatar({
                 [{currentSign.gloss || currentSign.keyword.toUpperCase()}]
               </span>
               <span className="text-xs text-indigo-300">
-                • {currentSign.label}
+                • {currentSign.label} {currentSign.hindi && `(${currentSign.hindi})`}
               </span>
             </div>
             <p className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">
