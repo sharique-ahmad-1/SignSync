@@ -23,6 +23,7 @@ import { CardContainer, CardBody, CardItem } from './ui/3d-card';
 import { LottieDisplay } from './ui/lottie-display';
 import { handTrackerLottie, aiProcessingLottie } from '../lib/lottieData';
 import { formulateGrammarSentence, speakFormulatedSentence, subscribeModelProgress, loadSmolLMModel } from '../lib/smolLM';
+import { classifyHandLandmarks, GESTURE_DICTIONARY } from '../lib/gestureClassifier';
 import { cn } from '../lib/utils';
 
 const HAND_CONNECTIONS = [
@@ -251,7 +252,7 @@ export function DeafView({
     rawSignTokensRef.current = rawSignTokens;
   }, [rawSignTokens]);
 
-  // Instant human sentence builder for zero-latency UI update (Task 1)
+  // Instant human sentence builder for zero-latency UI update (Task 1 & Task 3)
   const buildImmediateSentence = (tokens) => {
     if (!tokens || tokens.length === 0) return '';
     const last = tokens[tokens.length - 1];
@@ -265,7 +266,26 @@ export function DeafView({
         case 'water': return 'I need some water, please.';
         case 'stop': return 'Please stop.';
         case 'love': return 'I love you!';
+        case 'food': return 'Can I please have some food?';
+        case 'hungry': return 'I am feeling hungry, I need food.';
+        case 'doctor': return 'I need to see a doctor immediately.';
+        case 'emergency': return 'This is an emergency, please assist me!';
+        case 'hospital': return 'Please take me to the hospital.';
+        case 'pain': return 'I am experiencing pain.';
+        case 'please': return 'Please help me.';
+        case 'thank': return 'Thank you very much.';
+        case 'where': return 'Where is the nearest assistance?';
+        case 'what': return 'What happened?';
+        case 'time': return 'What time is it right now?';
+        case 'more': return 'Could I have some more, please?';
+        case 'sorry': return 'I am sorry, please excuse me.';
+        case 'friend': return 'You are a good friend.';
+        case 'family': return 'This is my family.';
+        case 'call': return 'Please make a phone call for me.';
+        case 'good': return 'That is very good, thank you.';
+        case 'bad': return 'That is not good.';
         case 'you': return 'Can you help?';
+        case 'me': return 'I am here.';
         default: return last;
       }
     }
@@ -282,6 +302,18 @@ export function DeafView({
     }
     if (lower.includes('yes') && lower.includes('help')) {
       return 'Yes, I need help.';
+    }
+    if (lower.includes('emergency') || lower.includes('doctor')) {
+      return 'Urgent: I need a doctor immediately!';
+    }
+    if (lower.includes('hungry') && lower.includes('food')) {
+      return 'I am hungry, please give me some food.';
+    }
+    if (lower.includes('please') && lower.includes('help')) {
+      return 'Please help me right now.';
+    }
+    if (lower.includes('thank') && lower.includes('you')) {
+      return 'Thank you very much for your assistance.';
     }
 
     return tokens.join(' ');
@@ -351,124 +383,9 @@ export function DeafView({
     }
   }, [triggerAutoFormulation, onSendAction]);
 
-  // Dual ISL vs. ASL Rotation-Invariant Euclidean Gesture Classifier (Task 2)
+  // Phase 9: Real Fingerpose ML Hand Gesture Classifier Engine
   const classifyGesture = useCallback((landmarks, mode = signLanguageMode) => {
-    if (!landmarks || landmarks.length < 21) return { gesture: 'No Hand in Frame', keyword: null };
-
-    const dist = (p1, p2) => Math.hypot(p1.x - p2.x, p1.y - p2.y);
-
-    const wrist = landmarks[0];
-    const thumbTip = landmarks[4];
-    const thumbIp = landmarks[3];
-    const thumbMcp = landmarks[2];
-    const indexTip = landmarks[8];
-    const indexPip = landmarks[6];
-    const indexMcp = landmarks[5];
-    const middleTip = landmarks[12];
-    const middlePip = landmarks[10];
-    const middleMcp = landmarks[9];
-    const ringTip = landmarks[16];
-    const ringPip = landmarks[14];
-    const ringMcp = landmarks[13];
-    const pinkyTip = landmarks[20];
-    const pinkyPip = landmarks[18];
-    const pinkyMcp = landmarks[17];
-
-    // Distance-based invariant extension checks:
-    const isIndexExt = dist(indexTip, wrist) > dist(indexPip, wrist) * 1.15;
-    const isMiddleExt = dist(middleTip, wrist) > dist(middlePip, wrist) * 1.15;
-    const isRingExt = dist(ringTip, wrist) > dist(ringPip, wrist) * 1.15;
-    const isPinkyExt = dist(pinkyTip, wrist) > dist(pinkyPip, wrist) * 1.15;
-
-    // Thumb extension & orientation
-    const isThumbExt = dist(thumbTip, pinkyMcp) > dist(thumbIp, pinkyMcp) * 1.08;
-    const isThumbUp = (thumbTip.y < indexMcp.y) && !isIndexExt && !isMiddleExt && !isRingExt && !isPinkyExt;
-
-    // Pinch / OK / Snap detection
-    const isPinch = dist(thumbTip, indexTip) < 0.08;
-    const isTwoFingerPinch = isPinch && dist(thumbTip, middleTip) < 0.09;
-
-    // 1. Closed Fist / Thumbs Up (Yes) - All 4 main fingers curled
-    if (!isIndexExt && !isMiddleExt && !isRingExt && !isPinkyExt) {
-      if (isThumbUp) {
-        return { 
-          gesture: mode === 'ISL' ? 'ISL Thumbs Up (Yes / Haan) 👍' : 'ASL Thumbs Up (Yes) 👍', 
-          keyword: 'Yes' 
-        };
-      }
-      return { 
-        gesture: mode === 'ISL' ? 'ISL Closed Fist (Yes / Haan) ✊' : 'ASL S-Hand (Yes) ✊', 
-        keyword: 'Yes' 
-      };
-    }
-
-    // 2. Pointing Up / Forward (Help / Attention / Me) - Only index finger extended
-    if (isIndexExt && !isMiddleExt && !isRingExt && !isPinkyExt) {
-      return { 
-        gesture: mode === 'ISL' ? 'ISL Pointing (Help / Sahayata) ☝️' : 'ASL 1-Hand (Help / Point) ☝️', 
-        keyword: 'Help' 
-      };
-    }
-
-    // 3. Victory / Two Fingers (No / Decline) - Index and Middle fingers extended
-    if (isIndexExt && isMiddleExt && !isRingExt && !isPinkyExt) {
-      return { 
-        gesture: mode === 'ISL' ? 'ISL Victory / Shake (No / Nahi) ✌️' : 'ASL Victory / Two (No) ✌️', 
-        keyword: 'No' 
-      };
-    }
-
-    // 4. Tripataka / 3-Fingers / W-Hand (Water) - Index, Middle, Ring extended
-    if (isIndexExt && isMiddleExt && isRingExt && !isPinkyExt) {
-      return { 
-        gesture: mode === 'ISL' ? 'ISL Tripataka (Water / Paani) 💧' : 'ASL W-Hand (Water) 💧', 
-        keyword: 'Water' 
-      };
-    }
-
-    // 5. I Love You (ILY Sign: Thumb, Index, Pinky extended)
-    if (isThumbExt && isIndexExt && isPinkyExt && !isMiddleExt && !isRingExt) {
-      return { 
-        gesture: mode === 'ISL' ? 'ISL I Love You (Pyar) 🤟' : 'ASL ILY Sign (I Love You) 🤟', 
-        keyword: 'Love' 
-      };
-    }
-
-    // 6. Urgent Alert / Call (Help: Thumb + Pinky)
-    if (isThumbExt && isPinkyExt && !isIndexExt && !isMiddleExt && !isRingExt) {
-      return { 
-        gesture: mode === 'ISL' ? 'ISL Urgent Alert (Need Help) 🤙' : 'ASL Call (Need Help) 🤙', 
-        keyword: 'Help' 
-      };
-    }
-
-    // 7. Snap / Pincer (No)
-    if (isTwoFingerPinch || (isPinch && !isMiddleExt && !isRingExt && !isPinkyExt)) {
-      return { 
-        gesture: mode === 'ISL' ? 'ISL Inkaar / Snap (No) 🤏' : 'ASL Snap (No / Negative) 🤏', 
-        keyword: 'No' 
-      };
-    }
-
-    // 8. 4 or 5 Fingers Extended: Distinguish Stop vs Hello
-    if (isIndexExt && isMiddleExt && isRingExt && isPinkyExt) {
-      // Flat Hand / Halt (Stop): Thumb tucked close to fingers or flat palm
-      const isThumbTucked = !isThumbExt || dist(thumbTip, indexMcp) < 0.11 || dist(thumbTip, pinkyMcp) < 0.14;
-      if (isThumbTucked) {
-        return { 
-          gesture: mode === 'ISL' ? 'ISL Flat Hand (Stop / Ruko) ✋' : 'ASL B-Hand (Stop / Wait) ✋', 
-          keyword: 'Stop' 
-        };
-      }
-
-      // Open Palm / Wave (Hello): Thumb spread wide open
-      return { 
-        gesture: mode === 'ISL' ? 'ISL Open Palm (Namaste / Hello) 🙏' : 'ASL 5-Hand (Hello / Wave) 👋', 
-        keyword: 'Hello' 
-      };
-    }
-
-    return { gesture: `${mode} Active Motion ✋`, keyword: null };
+    return classifyHandLandmarks(landmarks, mode);
   }, [signLanguageMode]);
 
   // Continuous prediction loop
@@ -515,14 +432,22 @@ export function DeafView({
 
         drawHandOnCanvas(ctx, fakeLandmarks, width, height, '#06b6d4', '#10b981');
         
-        // Multi-gesture cycling for demo/simulation mode (Hello, Yes, No, Stop, Help, Water)
+        // Multi-gesture cycling for demo/simulation mode (Full ISL/ASL Vocabulary Showcase)
         const simGests = [
-          { kw: 'Hello', isl: 'ISL Open Palm (Namaste / Hello) 🙏', asl: 'ASL 5-Hand (Hello / Wave) 👋' },
+          { kw: 'Hello', isl: 'ISL Open Palm (Hello / Namaste) 👋', asl: 'ASL 5-Hand (Hello / Wave) 👋' },
+          { kw: 'Water', isl: 'ISL Tripataka (Water / Paani) 💧', asl: 'ASL W-Hand (Water) 💧' },
+          { kw: 'Food', isl: 'ISL O-Hand (Food / Khana) 🍽️', asl: 'ASL Food / Eat 🍽️' },
+          { kw: 'Hungry', isl: 'ISL Cupped Hand (Hungry / Bhookh) 🤤', asl: 'ASL Hungry 🤤' },
+          { kw: 'Doctor', isl: 'ISL M-Hand (Doctor / Chikitsak) 🩺', asl: 'ASL Doctor 🩺' },
+          { kw: 'Emergency', isl: 'ISL E-Hand (Emergency / Aapatkaal) 🚨', asl: 'ASL Emergency 🚨' },
+          { kw: 'Help', isl: 'ISL Pointing (Help / Sahayata) ☝️', asl: 'ASL 1-Hand (Help) ☝️' },
+          { kw: 'Thank', isl: 'ISL Chin Forward (Thank You / Dhanyavaad) 🤲', asl: 'ASL Thank You 🤲' },
+          { kw: 'Please', isl: 'ISL Open Chest (Please / Kripya) 🙏', asl: 'ASL Please 🙏' },
           { kw: 'Yes', isl: 'ISL Closed Fist (Yes / Haan) ✊', asl: 'ASL S-Hand / Thumbs Up (Yes) 👍' },
           { kw: 'No', isl: 'ISL Two-Fingers Victory (No / Nahi) ✌️', asl: 'ASL Victory / Two (No) ✌️' },
           { kw: 'Stop', isl: 'ISL Flat Hand Out (Stop / Ruko) ✋', asl: 'ASL Flat Hand (Stop) ✋' },
-          { kw: 'Help', isl: 'ISL Pointing (Help / Sahayata) ☝️', asl: 'ASL 1-Hand (Help) ☝️' },
-          { kw: 'Water', isl: 'ISL Tripataka (Water / Paani) 💧', asl: 'ASL W-Hand (Water) 💧' }
+          { kw: 'Love', isl: 'ISL ILY Hand (I Love You / Pyar) 🤟', asl: 'ASL ILY Sign 🤟' },
+          { kw: 'Where', isl: 'ISL Palms Up (Where / Kahan) ❓', asl: 'ASL Where ❓' }
         ];
 
         const cycleIdx = Math.floor(time / 4) % simGests.length;
@@ -1141,14 +1066,62 @@ export function DeafView({
 
           </div>
 
-          {/* Quick Sign Shortcut Badges (All Multi-Gestures - Mobile Responsive) */}
+          {/* Quick Sign Shortcut Badges (Expanded ISL/ASL Vocabulary - Mobile Responsive) */}
           <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-400">
-            <span className="text-[11px] text-slate-500">Quick Tokens:</span>
+            <span className="text-[11px] text-slate-500">Quick Signs:</span>
             <button 
               onClick={() => addTokenToSequence('Hello')}
               className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] transition-colors cursor-pointer"
             >
               + Hello 👋
+            </button>
+            <button 
+              onClick={() => addTokenToSequence('Water')}
+              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-blue-300 text-[11px] transition-colors cursor-pointer"
+            >
+              + Water 💧
+            </button>
+            <button 
+              onClick={() => addTokenToSequence('Food')}
+              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 text-[11px] transition-colors cursor-pointer"
+            >
+              + Food 🍽️
+            </button>
+            <button 
+              onClick={() => addTokenToSequence('Hungry')}
+              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-yellow-300 text-[11px] transition-colors cursor-pointer"
+            >
+              + Hungry 🤤
+            </button>
+            <button 
+              onClick={() => addTokenToSequence('Doctor')}
+              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-teal-300 text-[11px] transition-colors cursor-pointer"
+            >
+              + Doctor 🩺
+            </button>
+            <button 
+              onClick={() => addTokenToSequence('Emergency')}
+              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-rose-400 text-[11px] transition-colors cursor-pointer font-bold"
+            >
+              + Emergency 🚨
+            </button>
+            <button 
+              onClick={() => addTokenToSequence('Help')}
+              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 text-[11px] transition-colors cursor-pointer"
+            >
+              + Help 🆘
+            </button>
+            <button 
+              onClick={() => addTokenToSequence('Thank')}
+              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-indigo-300 text-[11px] transition-colors cursor-pointer"
+            >
+              + Thank 🙏
+            </button>
+            <button 
+              onClick={() => addTokenToSequence('Please')}
+              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-purple-300 text-[11px] transition-colors cursor-pointer"
+            >
+              + Please 🤲
             </button>
             <button 
               onClick={() => addTokenToSequence('Yes')}
@@ -1169,16 +1142,10 @@ export function DeafView({
               + Stop ✋
             </button>
             <button 
-              onClick={() => addTokenToSequence('Help')}
-              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 text-[11px] transition-colors cursor-pointer"
+              onClick={() => addTokenToSequence('Where')}
+              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-sky-300 text-[11px] transition-colors cursor-pointer"
             >
-              + Help 🆘
-            </button>
-            <button 
-              onClick={() => addTokenToSequence('Water')}
-              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-blue-300 text-[11px] transition-colors cursor-pointer"
-            >
-              + Water 💧
+              + Where ❓
             </button>
           </div>
 

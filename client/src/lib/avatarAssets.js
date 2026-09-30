@@ -432,6 +432,181 @@ export const AVATAR_VOCABULARY = {
     },
     cycle: { joint: 'head', axis: 'x', freq: 3, amp: 0.2 },
     islStandard: true
+  },
+  doctor: {
+    gloss: 'DOCTOR',
+    label: 'Doctor / Chikitsak',
+    hindi: 'चिकित्सक / डॉक्टर',
+    category: 'Medical',
+    handShape: 'M-Hand Tap Wrist',
+    motionType: 'pulse_tap_cycle',
+    durationMs: 2500,
+    videoUrl: 'https://media.giphy.com/media/l41lI4bYmcsPJX9Go/giphy.gif',
+    description: 'Bent fingertips tap three times against the inner wrist checking pulse.',
+    bonePose: {
+      rightShoulder: [0.85, 0.2, 0.45],
+      rightElbow: [0, -0.7, 0.4],
+      leftShoulder: [0.5, -0.2, 0.3],
+      leftElbow: [0, -0.5, -0.3],
+      head: [0.1, 0, 0]
+    },
+    cycle: { joint: 'rightShoulder', axis: 'x', freq: 4, amp: 0.15 },
+    islStandard: true
+  },
+  emergency: {
+    gloss: 'EMERGENCY',
+    label: 'Emergency / Aapatkaal',
+    hindi: 'आपातकाल',
+    category: 'Medical',
+    handShape: 'E-Hand Rapid Shake',
+    motionType: 'wave_cycle',
+    durationMs: 2600,
+    videoUrl: 'https://media.giphy.com/media/3o7TKSjRrfIPjeiVyM/giphy.gif',
+    description: 'E-hand shape shaken rapidly side-to-side with urgency indicator.',
+    bonePose: {
+      rightShoulder: [1.15, 0.1, 0.55],
+      rightElbow: [0, -0.6, 0.4],
+      leftShoulder: [-0.2, 0, 0],
+      head: [0.1, 0, 0]
+    },
+    cycle: { joint: 'rightShoulder', axis: 'z', freq: 6, amp: 0.3 },
+    islStandard: true
+  },
+  hospital: {
+    gloss: 'HOSPITAL',
+    label: 'Hospital / Aspataal',
+    hindi: 'अस्पताल',
+    category: 'Medical',
+    handShape: 'H-Hand Cross on Shoulder',
+    motionType: 'cross_cycle',
+    durationMs: 2500,
+    videoUrl: 'https://media.giphy.com/media/26gsjCZpPolPr3sBy/giphy.gif',
+    description: 'Index and middle fingers draw a medical cross on the upper left arm/shoulder.',
+    bonePose: {
+      rightShoulder: [0.75, -0.25, 0.4],
+      rightElbow: [0, -0.65, 0.35],
+      leftShoulder: [0.3, -0.1, 0.2],
+      head: [0.05, 0, 0]
+    },
+    cycle: { joint: 'rightShoulder', axis: 'y', freq: 3, amp: 0.2 },
+    islStandard: true
+  },
+  pain: {
+    gloss: 'PAIN',
+    label: 'Pain / Hurt / Dard',
+    hindi: 'दर्द',
+    category: 'Medical',
+    handShape: 'Twisting Index Fingers',
+    motionType: 'point_cycle',
+    durationMs: 2400,
+    videoUrl: 'https://media.giphy.com/media/3o7TKnLpD9wAkyOIEw/giphy.gif',
+    description: 'Both index fingers point toward each other and twist back and forth at pain area.',
+    bonePose: {
+      rightShoulder: [0.7, 0.15, 0.4],
+      rightElbow: [0, -0.6, 0.3],
+      leftShoulder: [0.7, -0.15, 0.4],
+      leftElbow: [0, -0.6, -0.3],
+      head: [0.15, 0, 0]
+    },
+    cycle: { joint: 'both', axis: 'z', freq: 4, amp: 0.2 },
+    islStandard: true
+  },
+  more: {
+    gloss: 'MORE',
+    label: 'More / Aur',
+    hindi: 'और',
+    category: 'Essentials',
+    handShape: 'Fingertips Tapping',
+    motionType: 'chin_touch_cycle',
+    durationMs: 2300,
+    videoUrl: 'https://media.giphy.com/media/xT9IgG50Fb7Mi0prBC/giphy.gif',
+    description: 'Fingertips of both flattened O-hands tap together repeatedly in front of chest.',
+    bonePose: {
+      rightShoulder: [0.65, 0.2, 0.35],
+      rightElbow: [0, -0.5, 0.3],
+      leftShoulder: [0.65, -0.2, 0.35],
+      leftElbow: [0, -0.5, -0.3],
+      head: [0, 0, 0]
+    },
+    cycle: { joint: 'both', axis: 'x', freq: 4, amp: 0.15 },
+    islStandard: true
+  },
+  sorry: {
+    gloss: 'SORRY',
+    label: 'Sorry / Maaf',
+    hindi: 'माफ़ करना',
+    category: 'Courtesy',
+    handShape: 'A-Fist Circling Chest',
+    motionType: 'chest_rub_cycle',
+    durationMs: 2500,
+    videoUrl: 'https://media.giphy.com/media/3o7TKVfu4rwysCasla/giphy.gif',
+    description: 'Closed fist with thumb upright rubs in circular motions on center of chest.',
+    bonePose: {
+      rightShoulder: [0.8, -0.05, 0.45],
+      rightElbow: [0, -0.6, 0.35],
+      leftShoulder: [-0.2, 0, 0],
+      head: [0.2, 0, 0]
+    },
+    cycle: { joint: 'rightShoulder', axis: 'z', freq: 3, amp: 0.25 },
+    islStandard: true
+  },
+  bad: {
+    gloss: 'BAD',
+    label: 'Bad / Bura',
+    hindi: 'बुरा / खराब',
+    category: 'Courtesy',
+    handShape: 'Thumbs Down / Palm Down',
+    motionType: 'fist_nod_cycle',
+    durationMs: 2200,
+    videoUrl: 'https://media.giphy.com/media/3o7TKwmnDgQb5jemjK/giphy.gif',
+    description: 'Hand from chin moves down and flips palm/thumb facing downward with negative nod.',
+    bonePose: {
+      rightShoulder: [0.55, 0.1, 0.35],
+      rightElbow: [0, -0.3, 0.2],
+      leftShoulder: [-0.2, 0, 0],
+      head: [0, 0.25, 0]
+    },
+    cycle: { joint: 'head', axis: 'y', freq: 3, amp: 0.2 },
+    islStandard: true
+  },
+  call: {
+    gloss: 'CALL',
+    label: 'Call / Phone',
+    hindi: 'फ़ोन / कॉल',
+    category: 'Social',
+    handShape: 'Y-Hand to Ear',
+    motionType: 'chin_touch_cycle',
+    durationMs: 2400,
+    videoUrl: 'https://media.giphy.com/media/dzaUX7CAG0Ihi/giphy.gif',
+    description: 'Thumb at ear and pinky at mouth forming a telephone receiver.',
+    bonePose: {
+      rightShoulder: [1.2, 0.3, 0.6],
+      rightElbow: [0, -0.85, 0.5],
+      leftShoulder: [-0.2, 0, 0],
+      head: [0.1, 0.2, 0]
+    },
+    cycle: { joint: 'rightShoulder', axis: 'x', freq: 2, amp: 0.1 },
+    islStandard: true
+  },
+  family: {
+    gloss: 'FAMILY',
+    label: 'Family / Parivaar',
+    hindi: 'परिवार',
+    category: 'Social',
+    handShape: 'F-Hands Circle',
+    motionType: 'elevate_two_hands',
+    durationMs: 2700,
+    videoUrl: 'https://media.giphy.com/media/26FLdm964upqWP3lu/giphy.gif',
+    description: 'Both hands in F-shape touch index and thumb, sweep in horizontal circle touching pinkies.',
+    bonePose: {
+      rightShoulder: [0.75, 0.2, 0.45],
+      rightElbow: [0, -0.55, 0.35],
+      leftShoulder: [0.75, -0.2, 0.45],
+      leftElbow: [0, -0.55, -0.35],
+      head: [0, 0, 0]
+    },
+    cycle: { joint: 'both', axis: 'y', freq: 3, amp: 0.2 },
+    islStandard: true
   }
 };
 
