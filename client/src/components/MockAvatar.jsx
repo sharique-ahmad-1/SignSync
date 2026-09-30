@@ -28,6 +28,7 @@ import { MagneticButton, ShinyButton } from './ui/react-bits-micro';
 import { cn } from '../lib/utils';
 
 export function MockAvatar({ 
+  signLanguageMode = 'ISL',
   transcribedText, 
   repeatTrigger, 
   onSignRecognized 
@@ -591,7 +592,7 @@ export function MockAvatar({
         <div className="flex items-center gap-2">
           <div className="h-2 w-2 rounded-full bg-indigo-400 animate-pulse" />
           <span className="text-xs font-semibold uppercase tracking-wider text-indigo-300 font-heading">
-            3D ISL Avatar System
+            {signLanguageMode === 'ISL' ? '3D ISL Avatar System (🇮🇳)' : '3D ASL Avatar System (🇺🇸)'}
           </span>
           {isNlpParsing ? (
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 animate-pulse font-mono flex items-center gap-1">

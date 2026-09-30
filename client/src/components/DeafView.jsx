@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { FilesetResolver, HandLandmarker } from '@mediapipe/tasks-vision';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Camera, 
   CameraOff, 
@@ -14,7 +15,8 @@ import {
   Volume2,
   Cpu,
   AlertTriangle,
-  Play
+  Play,
+  Trash2
 } from 'lucide-react';
 import { GlowingEffect } from './ui/glowing-effect';
 import { CardContainer, CardBody, CardItem } from './ui/3d-card';
@@ -39,6 +41,7 @@ const HAND_CONNECTIONS = [
 ];
 
 export function DeafView({ 
+  signLanguageMode = 'ISL',
   onSendAction, 
   lastHearingTranscript, 
   isHearingSpeaking, 
@@ -66,9 +69,16 @@ export function DeafView({
   const [trackingConfidence, setTrackingConfidence] = useState(0);
   const [lastActionSent, setLastActionSent] = useState(null);
 
-  // Task 2: Offline NLP (SmolLM2) Sentence Formulation State
-  const [rawSignTokens, setRawSignTokens] = useState(['Me', 'Hungry', 'Food']);
-  const [formulatedSentence, setFormulatedSentence] = useState('I am hungry and would like some food.');
+  // Gesture-to-Text Auto-Commit & Visual Pop Animation States (Task 1 & Task 3)
+  const [justAddedToken, setJustAddedToken] = useState(null);
+  const stableHoldFramesRef = useRef(0);
+  const currentHoldKeywordRef = useRef(null);
+  const lastCommittedKeywordRef = useRef(null);
+  const lastCommitTimeRef = useRef(0);
+
+  // Task 1 & 2: Offline NLP (SmolLM2 / Gemini) Sentence Formulation State
+  const [rawSignTokens, setRawSignTokens] = useState([]);
+  const [formulatedSentence, setFormulatedSentence] = useState('');
   const [isFormulating, setIsFormulating] = useState(false);
   const [nlpState, setNlpState] = useState({ ready: false, loading: false, progress: 0, status: 'Initializing' });
 
@@ -235,8 +245,47 @@ export function DeafView({
   const gestureWindowRef = useRef([]);
   const [gestureStability, setGestureStability] = useState(100);
 
-  // Rotation-invariant Euclidean distance gesture classifier
-  const classifyGesture = (landmarks) => {
+  // Trigger auto-formulation of sign tokens into natural English sentence (Task 1)
+  const triggerAutoFormulation = useCallback(async (tokens) => {
+    if (!tokens || tokens.length === 0) {
+      setFormulatedSentence('');
+      return;
+    }
+    setIsFormulating(true);
+    try {
+      const sentence = await formulateGrammarSentence(tokens);
+      if (sentence) {
+        setFormulatedSentence(sentence);
+        console.log('[DeafView] Auto-formulated sentence:', sentence);
+      }
+    } catch (err) {
+      console.warn('[DeafView] Auto-formulation error:', err);
+    } finally {
+      setIsFormulating(false);
+    }
+  }, []);
+
+  // Commit detected token to UI sequence and trigger pop animation (Task 1 & 3)
+  const commitDetectedToken = useCallback((token) => {
+    if (!token) return;
+    console.log(`[DeafView] Committing detected token: "${token}" at ${new Date().toLocaleTimeString()}`);
+    
+    setJustAddedToken(token);
+    setTimeout(() => setJustAddedToken(null), 1200);
+
+    setRawSignTokens(prev => {
+      // Avoid immediate sequential duplicates
+      if (prev.length > 0 && prev[prev.length - 1] === token) {
+        return prev;
+      }
+      const updated = [...prev.slice(-4), token];
+      triggerAutoFormulation(updated);
+      return updated;
+    });
+  }, [triggerAutoFormulation]);
+
+  // Dual ISL vs. ASL Rotation-Invariant Euclidean Gesture Classifier (Task 2)
+  const classifyGesture = useCallback((landmarks, mode = signLanguageMode) => {
     if (!landmarks || landmarks.length < 21) return { gesture: 'No Hand in Frame', keyword: null };
 
     const dist = (p1, p2) => Math.hypot(p1.x - p2.x, p1.y - p2.y);
@@ -268,62 +317,111 @@ export function DeafView({
     const isThumbExt = dist(thumbTip, pinkyMcp) > dist(thumbIp, pinkyMcp) * 1.08;
     const isThumbUp = (thumbTip.y < indexMcp.y) && !isIndexExt && !isMiddleExt && !isRingExt && !isPinkyExt;
 
-    // Pinch / OK sign detection
+    // Pinch / OK / Snap detection
     const isPinch = dist(thumbTip, indexTip) < 0.08;
+    const isTwoFingerPinch = isPinch && dist(thumbTip, middleTip) < 0.09;
 
-    // 1. Open Palm (Hello / Wave)
-    if (isIndexExt && isMiddleExt && isRingExt && isPinkyExt && isThumbExt) {
-      return { gesture: 'Open Palm (Wave / Hello) 👋', keyword: 'Hello' };
+    // 1. ISL Specific Gesture Dictionary (Indian Sign Language)
+    if (mode === 'ISL') {
+      // ISL Open Palm (Namaste / Hello)
+      if (isIndexExt && isMiddleExt && isRingExt && isPinkyExt && isThumbExt) {
+        return { gesture: 'ISL Open Palm (Namaste / Hello) 🙏', keyword: 'Hello' };
+      }
+
+      // ISL Closed Fist (Yes / Haan)
+      if (!isIndexExt && !isMiddleExt && !isRingExt && !isPinkyExt && !isThumbExt) {
+        return { gesture: 'ISL Closed Fist (Yes / Haan) ✊', keyword: 'Yes' };
+      }
+
+      // ISL Thumbs Up (Good / Accha)
+      if (isThumbUp) {
+        return { gesture: 'ISL Thumbs Up (Good / Accha) 👍', keyword: 'Yes' };
+      }
+
+      // ISL Pointing (Suchi Hashta: Help / Attention)
+      if (isIndexExt && !isMiddleExt && !isRingExt && !isPinkyExt && !isThumbExt) {
+        return { gesture: 'ISL Pointing (Help / Sahayata) ☝️', keyword: 'Help' };
+      }
+
+      // ISL Victory (No / Inkaar)
+      if (isIndexExt && isMiddleExt && !isRingExt && !isPinkyExt) {
+        return { gesture: 'ISL Victory / Shake (No / Nahi) ✌️', keyword: 'No' };
+      }
+
+      // ISL Urgent Alert (Need Help: Thumb + Pinky)
+      if (isThumbExt && isPinkyExt && !isIndexExt && !isMiddleExt && !isRingExt) {
+        return { gesture: 'ISL Urgent Alert (Need Help) 🤙', keyword: 'Help' };
+      }
+
+      // ISL I Love You (ASL/ISL ILY Sign)
+      if (isThumbExt && isIndexExt && isPinkyExt && !isMiddleExt && !isRingExt) {
+        return { gesture: 'ISL I Love You (Pyar) 🤟', keyword: 'Love' };
+      }
+
+      // ISL Tripataka (Water / Paani: 3 fingers)
+      if (isIndexExt && isMiddleExt && isRingExt && !isPinkyExt) {
+        return { gesture: 'ISL Tripataka (Water / Paani) 💧', keyword: 'Water' };
+      }
+
+      // ISL OK Pinch (Understood)
+      if (isPinch && isMiddleExt && isRingExt) {
+        return { gesture: 'ISL Pinch (Understood) 👌', keyword: 'Yes' };
+      }
+
+      // ISL Flat Hand (Stop / Ruko)
+      if (isIndexExt && isMiddleExt && isRingExt && isPinkyExt && !isThumbExt) {
+        return { gesture: 'ISL Flat Hand (Stop / Ruko) ✋', keyword: 'Stop' };
+      }
+    } else {
+      // 2. ASL Specific Gesture Dictionary (American Sign Language)
+      // ASL 5-Hand (Hello / Wave)
+      if (isIndexExt && isMiddleExt && isRingExt && isPinkyExt && isThumbExt) {
+        return { gesture: 'ASL 5-Hand (Hello / Wave) 👋', keyword: 'Hello' };
+      }
+
+      // ASL S-Hand (Yes / Nodding Fist)
+      if (!isIndexExt && !isMiddleExt && !isRingExt && !isPinkyExt && !isThumbExt) {
+        return { gesture: 'ASL S-Hand (Yes / Nod) ✊', keyword: 'Yes' };
+      }
+
+      // ASL A-Hand (Thumbs Up / Help)
+      if (isThumbUp) {
+        return { gesture: 'ASL A-Hand (Help / Assist) 👍', keyword: 'Help' };
+      }
+
+      // ASL Snap / Pincer (No / Negative)
+      if (isTwoFingerPinch || (isPinch && isMiddleExt && !isRingExt && !isPinkyExt)) {
+        return { gesture: 'ASL Snap (No / Negative) 🤏', keyword: 'No' };
+      }
+
+      // ASL 1-Hand (You / Pointing)
+      if (isIndexExt && !isMiddleExt && !isRingExt && !isPinkyExt && !isThumbExt) {
+        return { gesture: 'ASL 1-Hand (You / Point) ☝️', keyword: 'You' };
+      }
+
+      // ASL W-Hand (Water)
+      if (isIndexExt && isMiddleExt && isRingExt && !isPinkyExt) {
+        return { gesture: 'ASL W-Hand (Water) 💧', keyword: 'Water' };
+      }
+
+      // ASL ILY Sign (I Love You)
+      if (isThumbExt && isIndexExt && isPinkyExt && !isMiddleExt && !isRingExt) {
+        return { gesture: 'ASL ILY Sign (I Love You) 🤟', keyword: 'Love' };
+      }
+
+      // ASL B-Hand (Stop / Wait)
+      if (isIndexExt && isMiddleExt && isRingExt && isPinkyExt && !isThumbExt) {
+        return { gesture: 'ASL B-Hand (Stop / Wait) ✋', keyword: 'Stop' };
+      }
+
+      // ASL F-Hand (Fine / OK)
+      if (isPinch && isMiddleExt && isRingExt && isPinkyExt) {
+        return { gesture: 'ASL F-Hand (Fine / OK) 👌', keyword: 'Yes' };
+      }
     }
 
-    // 2. Closed Fist (Yes / Nod / Affirmative)
-    if (!isIndexExt && !isMiddleExt && !isRingExt && !isPinkyExt && !isThumbExt) {
-      return { gesture: 'Closed Fist (Affirm / Yes) ✊', keyword: 'Yes' };
-    }
-
-    // 3. Thumbs Up (Yes / Good)
-    if (isThumbUp) {
-      return { gesture: 'Thumbs Up (Good / Yes) 👍', keyword: 'Yes' };
-    }
-
-    // 4. Pointing Up/Forward (Help / Attention / Me)
-    if (isIndexExt && !isMiddleExt && !isRingExt && !isPinkyExt && !isThumbExt) {
-      return { gesture: 'Pointing (Attention / Help) ☝️', keyword: 'Help' };
-    }
-
-    // 5. Victory / Two (Decline / No)
-    if (isIndexExt && isMiddleExt && !isRingExt && !isPinkyExt) {
-      return { gesture: 'Victory (Decline / No) ✌️', keyword: 'No' };
-    }
-
-    // 6. Thumb + Pinky Extended (Call / Urgent Help)
-    if (isThumbExt && isPinkyExt && !isIndexExt && !isMiddleExt && !isRingExt) {
-      return { gesture: 'Urgent Alert (Need Help) 🤙', keyword: 'Help' };
-    }
-
-    // 7. I Love You (ASL/ISL ILY Sign: Thumb, Index, Pinky extended)
-    if (isThumbExt && isIndexExt && isPinkyExt && !isMiddleExt && !isRingExt) {
-      return { gesture: 'I Love You (ASL/ISL ILY) 🤟', keyword: 'Love' };
-    }
-
-    // 8. Three Fingers (Water / W-Shape)
-    if (isIndexExt && isMiddleExt && isRingExt && !isPinkyExt) {
-      return { gesture: 'Three Fingers (Water / W) 💧', keyword: 'Water' };
-    }
-
-    // 9. Pinch / OK (Understood)
-    if (isPinch && isMiddleExt && isRingExt) {
-      return { gesture: 'Pinch (OK / Understood) 👌', keyword: 'Yes' };
-    }
-
-    // 10. Flat Stop Hand
-    if (isIndexExt && isMiddleExt && isRingExt && isPinkyExt && !isThumbExt) {
-      return { gesture: 'Flat Hand (Stop / Wait) ✋', keyword: 'Stop' };
-    }
-
-    return { gesture: 'Active Hand Motion ✋', keyword: null };
-  };
-
+    return { gesture: `${mode} Active Motion ✋`, keyword: null };
+  }, [signLanguageMode]);
 
   // Continuous prediction loop
   const predictLoop = useCallback(() => {
@@ -368,11 +466,19 @@ export function DeafView({
         ];
 
         drawHandOnCanvas(ctx, fakeLandmarks, width, height, '#06b6d4', '#10b981');
-        setDetectedGesture('Open Palm (Wave / Hello) 👋');
+        const simGesture = signLanguageMode === 'ISL' ? 'ISL Open Palm (Namaste / Hello) 🙏' : 'ASL 5-Hand (Hello / Wave) 👋';
+        setDetectedGesture(simGesture);
         setDetectedKeyword('Hello');
         setHandCount(1);
         setTrackingConfidence(99);
         setGestureStability(100);
+
+        // Auto-commit simulated demo token once
+        if (!lastCommittedKeywordRef.current) {
+          lastCommittedKeywordRef.current = 'Hello';
+          lastCommitTimeRef.current = Date.now();
+          commitDetectedToken('Hello');
+        }
       }
       animFrameIdRef.current = requestAnimationFrame(predictLoop);
       return;
@@ -396,7 +502,7 @@ export function DeafView({
           : 95;
         setTrackingConfidence(avgConfidence);
 
-        const rawResult = classifyGesture(results.landmarks[0]);
+        const rawResult = classifyGesture(results.landmarks[0], signLanguageMode);
 
         // Push to temporal smoothing sliding window buffer (Task 1)
         const window = gestureWindowRef.current;
@@ -429,6 +535,26 @@ export function DeafView({
           const matched = window.find(item => item.gesture === dominantGesture && item.keyword);
           if (matched && matched.keyword) {
             setDetectedKeyword(matched.keyword);
+
+            // Auto-append stable gesture to token sequence (Fixes Task 1)
+            if (matched.keyword === currentHoldKeywordRef.current) {
+              stableHoldFramesRef.current += 1;
+            } else {
+              currentHoldKeywordRef.current = matched.keyword;
+              stableHoldFramesRef.current = 1;
+            }
+
+            const now = Date.now();
+            const timeSinceLast = now - lastCommitTimeRef.current;
+            const isDifferentWord = matched.keyword !== lastCommittedKeywordRef.current;
+
+            // Commit token after holding for 6+ frames (~200ms) with 2.5s debounce
+            if (stableHoldFramesRef.current >= 6 && (isDifferentWord || timeSinceLast > 2500)) {
+              lastCommittedKeywordRef.current = matched.keyword;
+              lastCommitTimeRef.current = now;
+              stableHoldFramesRef.current = 0;
+              commitDetectedToken(matched.keyword);
+            }
           }
         }
 
@@ -440,6 +566,8 @@ export function DeafView({
         }
       } else {
         gestureWindowRef.current = [];
+        currentHoldKeywordRef.current = null;
+        stableHoldFramesRef.current = 0;
         setHandCount(0);
         setDetectedGesture('No Hand in Frame');
         setTrackingConfidence(0);
@@ -448,7 +576,7 @@ export function DeafView({
     }
 
     animFrameIdRef.current = requestAnimationFrame(predictLoop);
-  }, [cameraActive, simulationMode, showCanvasOverlay]);
+  }, [cameraActive, simulationMode, showCanvasOverlay, signLanguageMode, classifyGesture, commitDetectedToken]);
 
   const drawHandOnCanvas = (ctx, landmarks, width, height, boneColor, jointColor) => {
     ctx.lineWidth = 3;
@@ -510,11 +638,26 @@ export function DeafView({
     }, 3500);
   };
 
-  // Add detected gesture to raw sign tokens
+  // Add detected gesture to raw sign tokens with visual pop and auto-formulate
   const addTokenToSequence = (token) => {
     if (!token) return;
     console.log(`[SignSync DeafView] Added token: "${token}"`);
-    setRawSignTokens(prev => [...prev.slice(-4), token]);
+    setJustAddedToken(token);
+    setTimeout(() => setJustAddedToken(null), 1200);
+    setRawSignTokens(prev => {
+      const updated = [...prev.slice(-4), token];
+      triggerAutoFormulation(updated);
+      return updated;
+    });
+  };
+
+  // Clear all tokens and formulated sentence
+  const handleClearTokens = () => {
+    setRawSignTokens([]);
+    setFormulatedSentence('');
+    lastCommittedKeywordRef.current = null;
+    currentHoldKeywordRef.current = null;
+    stableHoldFramesRef.current = 0;
   };
 
   // Run SmolLM2 / NLP grammar formulation
@@ -563,6 +706,9 @@ export function DeafView({
           <div className="h-2.5 w-2.5 rounded-full bg-cyan-400 animate-pulse" />
           <span className="text-xs font-semibold uppercase tracking-wider text-cyan-400 font-heading">
             Deaf User View • Hand Sign & Vision Tracker
+          </span>
+          <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center gap-1">
+            {signLanguageMode === 'ISL' ? '🇮🇳 ISL Mode' : '🇺🇸 ASL Mode'}
           </span>
           {simulationMode && (
             <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
@@ -773,47 +919,79 @@ export function DeafView({
                 {nlpState.ready ? 'Model Cached' : nlpState.status}
               </span>
             </div>
-            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-              <span className="text-[11px] text-slate-400">Tokens:</span>
-              {rawSignTokens.map((tok, idx) => (
-                <span key={idx} className="px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700 text-xs font-mono text-cyan-300">
-                  {tok}
-                </span>
-              ))}
+            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+              <span className="text-[11px] text-slate-400 font-medium">Tokens:</span>
+              <AnimatePresence>
+                {rawSignTokens.length === 0 ? (
+                  <span className="text-xs text-slate-500 italic">Perform hand signs to append tokens...</span>
+                ) : (
+                  rawSignTokens.map((tok, idx) => (
+                    <motion.span
+                      key={`${tok}-${idx}`}
+                      initial={{ scale: 0.3, y: -8, opacity: 0 }}
+                      animate={{ scale: 1, y: 0, opacity: 1 }}
+                      exit={{ scale: 0.5, opacity: 0 }}
+                      transition={{ type: "spring", stiffness: 500, damping: 25 }}
+                      className={cn(
+                        "px-2.5 py-0.5 rounded-lg border text-xs font-mono font-semibold transition-all duration-300 shadow-sm",
+                        justAddedToken === tok && idx === rawSignTokens.length - 1
+                          ? "bg-gradient-to-r from-cyan-500 to-indigo-500 border-cyan-300 text-white ring-2 ring-cyan-400/60 shadow-cyan-500/40 scale-105"
+                          : "bg-slate-800 border-slate-700 text-cyan-300"
+                      )}
+                    >
+                      {tok}
+                    </motion.span>
+                  ))
+                )}
+              </AnimatePresence>
               {detectedKeyword && (
                 <button
                   onClick={() => addTokenToSequence(detectedKeyword)}
-                  className="px-2 py-0.5 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-medium cursor-pointer"
+                  className="px-2 py-0.5 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-medium cursor-pointer transition-all active:scale-95"
                 >
                   + Add "{detectedKeyword}"
+                </button>
+              )}
+              {rawSignTokens.length > 0 && (
+                <button
+                  onClick={handleClearTokens}
+                  className="p-1 rounded-md bg-slate-800 hover:bg-rose-950/60 text-slate-400 hover:text-rose-300 border border-slate-700 hover:border-rose-500/40 text-[10px] transition-all cursor-pointer"
+                  title="Clear tokens"
+                >
+                  <Trash2 className="h-3 w-3" />
                 </button>
               )}
             </div>
           </div>
         </div>
 
-        {/* Formulated Sentence & Speak Aloud Trigger */}
-        <div className="flex items-center gap-2 w-full lg:w-auto justify-end">
-          <div className="text-right flex-1 sm:flex-initial">
-            <div className="text-xs font-semibold text-white bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
-              "{formulatedSentence}"
-            </div>
+        {/* Formulated Sentence & Speak Aloud Trigger (Task 1 & Task 3 Input box) */}
+        <div className="flex items-center gap-2 w-full lg:w-auto justify-end flex-wrap sm:flex-nowrap">
+          <div className="relative flex-1 sm:w-64 min-w-[200px]">
+            <input
+              type="text"
+              value={formulatedSentence}
+              onChange={(e) => setFormulatedSentence(e.target.value)}
+              placeholder="Formulated sentence appears here..."
+              className="w-full text-xs font-medium text-white bg-slate-950 px-3 py-2 rounded-xl border border-slate-800 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/50 shadow-inner placeholder:text-slate-600 transition-all"
+            />
           </div>
           
           <button
             onClick={handleFormulateSentence}
-            disabled={isFormulating}
-            className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-indigo-500/30 text-xs font-medium flex items-center gap-1 transition-all cursor-pointer"
-            title="Re-run SmolLM2 sentence reconstruction"
+            disabled={isFormulating || rawSignTokens.length === 0}
+            className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-indigo-300 border border-indigo-500/30 text-xs font-medium flex items-center gap-1 transition-all cursor-pointer shrink-0"
+            title="Re-run SmolLM2 / Gemini sentence reconstruction"
           >
             {isFormulating ? <LottieDisplay animationData={aiProcessingLottie} className="w-4 h-4" /> : <Sparkles className="h-3.5 w-3.5" />}
-            <span>{isFormulating ? 'Processing...' : 'Formulate'}</span>
+            <span className="hidden sm:inline">{isFormulating ? 'Processing...' : 'Formulate'}</span>
           </button>
 
           {/* Speak Aloud Button (Wired with TTS & Visual Toast) */}
           <button
             onClick={handleSpeakAloud}
-            className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white text-xs font-bold shadow-md shadow-indigo-600/30 flex items-center gap-1.5 transition-all transform active:scale-95 cursor-pointer"
+            disabled={!formulatedSentence.trim()}
+            className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold shadow-md shadow-indigo-600/30 flex items-center gap-1.5 transition-all transform active:scale-95 cursor-pointer shrink-0"
             title="Vocalize this formulated sentence to the Hearing User"
           >
             <Volume2 className="h-3.5 w-3.5" />

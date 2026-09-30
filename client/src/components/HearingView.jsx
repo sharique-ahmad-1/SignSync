@@ -19,6 +19,7 @@ import { parseTextToSignGlosses } from '../lib/avatarAssets';
 import { cn } from '../lib/utils';
 
 export function HearingView({ 
+  signLanguageMode = 'ISL',
   onSpeechTranscribed, 
   isListening, 
   setIsListening,
@@ -180,6 +181,9 @@ export function HearingView({
           <div className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
           <span className="text-xs font-semibold uppercase tracking-wider text-emerald-400 font-heading">
             Hearing User View • Speech-to-Sign Engine
+          </span>
+          <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+            {signLanguageMode === 'ISL' ? '🇮🇳 ISL Avatar' : '🇺🇸 ASL Avatar'}
           </span>
         </div>
 
@@ -350,6 +354,7 @@ export function HearingView({
         {/* Right Column: Upgraded Mock Avatar with Three.js 3D WebGL Rig & Video Mode */}
         <div className="lg:col-span-7">
           <MockAvatar
+            signLanguageMode={signLanguageMode}
             transcribedText={transcript || interimText}
             repeatTrigger={repeatTrigger}
           />
