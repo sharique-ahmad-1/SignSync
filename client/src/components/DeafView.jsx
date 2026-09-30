@@ -80,6 +80,7 @@ export function DeafView({
   const [rawSignTokens, setRawSignTokens] = useState([]);
   const [formulatedSentence, setFormulatedSentence] = useState('');
   const [isFormulating, setIsFormulating] = useState(false);
+  const [autoVocalize, setAutoVocalize] = useState(true);
   const [nlpState, setNlpState] = useState({ ready: false, loading: false, progress: 0, status: 'Initializing' });
 
   // Subscribe to SmolLM2 progress & trigger background load
@@ -329,6 +330,11 @@ export function DeafView({
     // IMMEDIATELY populate the "Speak Aloud" input box with natural English (Task 1 Fix)
     const immediateSentence = buildImmediateSentence(updated);
     setFormulatedSentence(immediateSentence);
+
+    // Auto-vocalize via Text-to-Speech (Audio) for Hearing user (Phase 8 Task 1)
+    if (autoVocalize && immediateSentence) {
+      speakFormulatedSentence(immediateSentence);
+    }
 
     // Trigger AI NLP formulation in background to refine sentence
     triggerAutoFormulation(updated);
@@ -1038,6 +1044,21 @@ export function DeafView({
             <span className="hidden sm:inline">{isFormulating ? 'Processing...' : 'Formulate'}</span>
           </button>
 
+          {/* Auto-TTS Toggle (Phase 8 Task 1: Sign -> Text & Audio) */}
+          <button
+            onClick={() => setAutoVocalize(prev => !prev)}
+            className={cn(
+              "px-2.5 py-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shrink-0",
+              autoVocalize
+                ? "bg-emerald-950/70 border-emerald-500/50 text-emerald-300 shadow-sm shadow-emerald-900/40"
+                : "bg-slate-800/80 border-slate-700 text-slate-400"
+            )}
+            title="Automatically vocalize detected signs out loud for hearing users"
+          >
+            <Volume2 className={cn("h-3.5 w-3.5", autoVocalize && "text-emerald-400 animate-pulse")} />
+            <span>Auto TTS: {autoVocalize ? 'ON' : 'OFF'}</span>
+          </button>
+
           {/* Speak Aloud Button (Wired with TTS & Visual Toast) */}
           <button
             onClick={handleSpeakAloud}
@@ -1120,8 +1141,8 @@ export function DeafView({
 
           </div>
 
-          {/* Quick Sign Shortcut Badges (All Multi-Gestures) */}
-          <div className="hidden lg:flex items-center gap-1.5 text-xs text-slate-400">
+          {/* Quick Sign Shortcut Badges (All Multi-Gestures - Mobile Responsive) */}
+          <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-400">
             <span className="text-[11px] text-slate-500">Quick Tokens:</span>
             <button 
               onClick={() => addTokenToSequence('Hello')}

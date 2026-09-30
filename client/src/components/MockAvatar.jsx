@@ -809,12 +809,12 @@ export function MockAvatar({
 
           {/* Dual Mode: Picture-in-Picture Floating Sign Demo Inset */}
           {renderMode === 'dual' && currentSign.videoUrl && (
-            <div className="absolute bottom-14 right-3 z-20 w-32 sm:w-40 bg-slate-950/90 backdrop-blur-md rounded-2xl border border-indigo-500/40 p-2 shadow-2xl flex flex-col items-center animate-fadeIn pointer-events-auto">
+            <div className="absolute bottom-16 right-2 sm:right-3 z-20 w-28 sm:w-36 md:w-40 bg-slate-950/90 backdrop-blur-md rounded-2xl border border-indigo-500/40 p-1.5 sm:p-2 shadow-2xl flex flex-col items-center animate-fadeIn pointer-events-auto">
               <div className="flex items-center justify-between w-full pb-1 mb-1 border-b border-slate-800 text-[10px]">
-                <span className="font-semibold text-cyan-300 text-[10px]">ISL Sign Demo</span>
+                <span className="font-semibold text-cyan-300 text-[9px] sm:text-[10px]">ISL Sign Demo</span>
                 <span className="text-[9px] font-mono text-emerald-400">HD GIF</span>
               </div>
-              <div className="w-full h-20 sm:h-24 overflow-hidden rounded-xl bg-black flex items-center justify-center">
+              <div className="w-full h-16 sm:h-20 md:h-24 overflow-hidden rounded-xl bg-black flex items-center justify-center">
                 <img
                   key={currentSign.videoUrl}
                   src={currentSign.videoUrl}
@@ -830,7 +830,7 @@ export function MockAvatar({
 
           {/* Mode: Video Only Stage */}
           {renderMode === 'video' && (
-            <div className="relative w-64 h-64 flex flex-col items-center justify-center p-3 animate-fadeIn">
+            <div className="relative w-56 sm:w-64 h-56 sm:h-64 flex flex-col items-center justify-center p-3 animate-fadeIn">
               <img
                 key={currentSign.videoUrl}
                 src={currentSign.videoUrl || 'https://media.giphy.com/media/dzaUX7CAG0Ihi/giphy.gif'}
@@ -844,8 +844,8 @@ export function MockAvatar({
           )}
 
           {/* Active Gloss & Subtitle Instruction */}
-          <div className="absolute bottom-2 inset-x-3 z-20 bg-slate-950/85 backdrop-blur-md p-2 rounded-xl border border-slate-800 text-center">
-            <div className="flex items-center justify-center gap-2">
+          <div className="absolute bottom-2 inset-x-2 sm:inset-x-3 z-20 bg-slate-950/85 backdrop-blur-md p-1.5 sm:p-2 rounded-xl border border-slate-800 text-center">
+            <div className="flex items-center justify-center gap-1.5 sm:gap-2">
               <span className="text-xs font-bold text-white tracking-wide font-mono">
                 [{currentSign.gloss || currentSign.keyword.toUpperCase()}]
               </span>
