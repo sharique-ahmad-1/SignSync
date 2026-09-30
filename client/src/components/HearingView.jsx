@@ -327,6 +327,28 @@ export function HearingView({
 
           </div>
 
+          {/* Quick Voice / Text Demo Chips for Instant Avatar Testing (Task 2) */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[10px] text-slate-500 font-medium">Quick Voice Chips:</span>
+            {[
+              { label: 'Hello 👋', text: 'Hello, nice to meet you' },
+              { label: 'Need Help 🆘', text: 'Please help me' },
+              { label: 'Water 💧', text: 'Can I have some water please' },
+              { label: 'Thank You 🙏', text: 'Thank you very much' },
+              { label: 'Yes ✊', text: 'Yes, that is good' },
+              { label: 'Stop ✋', text: 'Please stop here' },
+            ].map((chip) => (
+              <button
+                key={chip.label}
+                type="button"
+                onClick={() => handleSend(chip.text)}
+                className="px-2 py-0.5 rounded-lg bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/50 text-slate-300 text-[10px] transition-all hover:scale-105 active:scale-95 cursor-pointer"
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
+
           {/* Manual Input Fallback */}
           <form 
             onSubmit={(e) => { e.preventDefault(); handleSend(); }}

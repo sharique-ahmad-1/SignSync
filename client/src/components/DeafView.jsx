@@ -382,113 +382,84 @@ export function DeafView({
     const isPinch = dist(thumbTip, indexTip) < 0.08;
     const isTwoFingerPinch = isPinch && dist(thumbTip, middleTip) < 0.09;
 
-    // Open Palm / Hello Check: 4 main fingers extended upward/forward (Reliable wave/greeting detection)
+    // 1. Closed Fist / Thumbs Up (Yes) - All 4 main fingers curled
+    if (!isIndexExt && !isMiddleExt && !isRingExt && !isPinkyExt) {
+      if (isThumbUp) {
+        return { 
+          gesture: mode === 'ISL' ? 'ISL Thumbs Up (Yes / Haan) 👍' : 'ASL Thumbs Up (Yes) 👍', 
+          keyword: 'Yes' 
+        };
+      }
+      return { 
+        gesture: mode === 'ISL' ? 'ISL Closed Fist (Yes / Haan) ✊' : 'ASL S-Hand (Yes) ✊', 
+        keyword: 'Yes' 
+      };
+    }
+
+    // 2. Pointing Up / Forward (Help / Attention / Me) - Only index finger extended
+    if (isIndexExt && !isMiddleExt && !isRingExt && !isPinkyExt) {
+      return { 
+        gesture: mode === 'ISL' ? 'ISL Pointing (Help / Sahayata) ☝️' : 'ASL 1-Hand (Help / Point) ☝️', 
+        keyword: 'Help' 
+      };
+    }
+
+    // 3. Victory / Two Fingers (No / Decline) - Index and Middle fingers extended
+    if (isIndexExt && isMiddleExt && !isRingExt && !isPinkyExt) {
+      return { 
+        gesture: mode === 'ISL' ? 'ISL Victory / Shake (No / Nahi) ✌️' : 'ASL Victory / Two (No) ✌️', 
+        keyword: 'No' 
+      };
+    }
+
+    // 4. Tripataka / 3-Fingers / W-Hand (Water) - Index, Middle, Ring extended
+    if (isIndexExt && isMiddleExt && isRingExt && !isPinkyExt) {
+      return { 
+        gesture: mode === 'ISL' ? 'ISL Tripataka (Water / Paani) 💧' : 'ASL W-Hand (Water) 💧', 
+        keyword: 'Water' 
+      };
+    }
+
+    // 5. I Love You (ILY Sign: Thumb, Index, Pinky extended)
+    if (isThumbExt && isIndexExt && isPinkyExt && !isMiddleExt && !isRingExt) {
+      return { 
+        gesture: mode === 'ISL' ? 'ISL I Love You (Pyar) 🤟' : 'ASL ILY Sign (I Love You) 🤟', 
+        keyword: 'Love' 
+      };
+    }
+
+    // 6. Urgent Alert / Call (Help: Thumb + Pinky)
+    if (isThumbExt && isPinkyExt && !isIndexExt && !isMiddleExt && !isRingExt) {
+      return { 
+        gesture: mode === 'ISL' ? 'ISL Urgent Alert (Need Help) 🤙' : 'ASL Call (Need Help) 🤙', 
+        keyword: 'Help' 
+      };
+    }
+
+    // 7. Snap / Pincer (No)
+    if (isTwoFingerPinch || (isPinch && !isMiddleExt && !isRingExt && !isPinkyExt)) {
+      return { 
+        gesture: mode === 'ISL' ? 'ISL Inkaar / Snap (No) 🤏' : 'ASL Snap (No / Negative) 🤏', 
+        keyword: 'No' 
+      };
+    }
+
+    // 8. 4 or 5 Fingers Extended: Distinguish Stop vs Hello
     if (isIndexExt && isMiddleExt && isRingExt && isPinkyExt) {
-      const isThumbTuckedAcross = dist(thumbTip, indexMcp) < 0.065 || dist(thumbTip, middleMcp) < 0.065;
-      if (isThumbTuckedAcross) {
+      // Flat Hand / Halt (Stop): Thumb tucked close to fingers or flat palm
+      const isThumbTucked = !isThumbExt || dist(thumbTip, indexMcp) < 0.11 || dist(thumbTip, pinkyMcp) < 0.14;
+      if (isThumbTucked) {
         return { 
           gesture: mode === 'ISL' ? 'ISL Flat Hand (Stop / Ruko) ✋' : 'ASL B-Hand (Stop / Wait) ✋', 
           keyword: 'Stop' 
         };
       }
+
+      // Open Palm / Wave (Hello): Thumb spread wide open
       return { 
         gesture: mode === 'ISL' ? 'ISL Open Palm (Namaste / Hello) 🙏' : 'ASL 5-Hand (Hello / Wave) 👋', 
         keyword: 'Hello' 
       };
-    }
-
-    // 1. ISL Specific Gesture Dictionary (Indian Sign Language)
-    if (mode === 'ISL') {
-      // ISL Closed Fist (Yes / Haan)
-      if (!isIndexExt && !isMiddleExt && !isRingExt && !isPinkyExt && !isThumbExt) {
-        return { gesture: 'ISL Closed Fist (Yes / Haan) ✊', keyword: 'Yes' };
-      }
-
-      // ISL Thumbs Up (Good / Accha)
-      if (isThumbUp) {
-        return { gesture: 'ISL Thumbs Up (Good / Accha) 👍', keyword: 'Yes' };
-      }
-
-      // ISL Pointing (Suchi Hashta: Help / Attention)
-      if (isIndexExt && !isMiddleExt && !isRingExt && !isPinkyExt && !isThumbExt) {
-        return { gesture: 'ISL Pointing (Help / Sahayata) ☝️', keyword: 'Help' };
-      }
-
-      // ISL Victory (No / Inkaar)
-      if (isIndexExt && isMiddleExt && !isRingExt && !isPinkyExt) {
-        return { gesture: 'ISL Victory / Shake (No / Nahi) ✌️', keyword: 'No' };
-      }
-
-      // ISL Urgent Alert (Need Help: Thumb + Pinky)
-      if (isThumbExt && isPinkyExt && !isIndexExt && !isMiddleExt && !isRingExt) {
-        return { gesture: 'ISL Urgent Alert (Need Help) 🤙', keyword: 'Help' };
-      }
-
-      // ISL I Love You (ASL/ISL ILY Sign)
-      if (isThumbExt && isIndexExt && isPinkyExt && !isMiddleExt && !isRingExt) {
-        return { gesture: 'ISL I Love You (Pyar) 🤟', keyword: 'Love' };
-      }
-
-      // ISL Tripataka (Water / Paani: 3 fingers)
-      if (isIndexExt && isMiddleExt && isRingExt && !isPinkyExt) {
-        return { gesture: 'ISL Tripataka (Water / Paani) 💧', keyword: 'Water' };
-      }
-
-      // ISL OK Pinch (Understood)
-      if (isPinch && isMiddleExt && isRingExt) {
-        return { gesture: 'ISL Pinch (Understood) 👌', keyword: 'Yes' };
-      }
-
-      // ISL Flat Hand (Stop / Ruko)
-      if (isIndexExt && isMiddleExt && isRingExt && isPinkyExt && !isThumbExt) {
-        return { gesture: 'ISL Flat Hand (Stop / Ruko) ✋', keyword: 'Stop' };
-      }
-    } else {
-      // 2. ASL Specific Gesture Dictionary (American Sign Language)
-      // ASL 5-Hand (Hello / Wave)
-      if (isIndexExt && isMiddleExt && isRingExt && isPinkyExt && isThumbExt) {
-        return { gesture: 'ASL 5-Hand (Hello / Wave) 👋', keyword: 'Hello' };
-      }
-
-      // ASL S-Hand (Yes / Nodding Fist)
-      if (!isIndexExt && !isMiddleExt && !isRingExt && !isPinkyExt && !isThumbExt) {
-        return { gesture: 'ASL S-Hand (Yes / Nod) ✊', keyword: 'Yes' };
-      }
-
-      // ASL A-Hand (Thumbs Up / Help)
-      if (isThumbUp) {
-        return { gesture: 'ASL A-Hand (Help / Assist) 👍', keyword: 'Help' };
-      }
-
-      // ASL Snap / Pincer (No / Negative)
-      if (isTwoFingerPinch || (isPinch && isMiddleExt && !isRingExt && !isPinkyExt)) {
-        return { gesture: 'ASL Snap (No / Negative) 🤏', keyword: 'No' };
-      }
-
-      // ASL 1-Hand (You / Pointing)
-      if (isIndexExt && !isMiddleExt && !isRingExt && !isPinkyExt && !isThumbExt) {
-        return { gesture: 'ASL 1-Hand (You / Point) ☝️', keyword: 'You' };
-      }
-
-      // ASL W-Hand (Water)
-      if (isIndexExt && isMiddleExt && isRingExt && !isPinkyExt) {
-        return { gesture: 'ASL W-Hand (Water) 💧', keyword: 'Water' };
-      }
-
-      // ASL ILY Sign (I Love You)
-      if (isThumbExt && isIndexExt && isPinkyExt && !isMiddleExt && !isRingExt) {
-        return { gesture: 'ASL ILY Sign (I Love You) 🤟', keyword: 'Love' };
-      }
-
-      // ASL B-Hand (Stop / Wait)
-      if (isIndexExt && isMiddleExt && isRingExt && isPinkyExt && !isThumbExt) {
-        return { gesture: 'ASL B-Hand (Stop / Wait) ✋', keyword: 'Stop' };
-      }
-
-      // ASL F-Hand (Fine / OK)
-      if (isPinch && isMiddleExt && isRingExt && isPinkyExt) {
-        return { gesture: 'ASL F-Hand (Fine / OK) 👌', keyword: 'Yes' };
-      }
     }
 
     return { gesture: `${mode} Active Motion ✋`, keyword: null };
@@ -537,18 +508,32 @@ export function DeafView({
         ];
 
         drawHandOnCanvas(ctx, fakeLandmarks, width, height, '#06b6d4', '#10b981');
-        const simGesture = signLanguageMode === 'ISL' ? 'ISL Open Palm (Namaste / Hello) 🙏' : 'ASL 5-Hand (Hello / Wave) 👋';
+        
+        // Multi-gesture cycling for demo/simulation mode (Hello, Yes, No, Stop, Help, Water)
+        const simGests = [
+          { kw: 'Hello', isl: 'ISL Open Palm (Namaste / Hello) 🙏', asl: 'ASL 5-Hand (Hello / Wave) 👋' },
+          { kw: 'Yes', isl: 'ISL Closed Fist (Yes / Haan) ✊', asl: 'ASL S-Hand / Thumbs Up (Yes) 👍' },
+          { kw: 'No', isl: 'ISL Two-Fingers Victory (No / Nahi) ✌️', asl: 'ASL Victory / Two (No) ✌️' },
+          { kw: 'Stop', isl: 'ISL Flat Hand Out (Stop / Ruko) ✋', asl: 'ASL Flat Hand (Stop) ✋' },
+          { kw: 'Help', isl: 'ISL Pointing (Help / Sahayata) ☝️', asl: 'ASL 1-Hand (Help) ☝️' },
+          { kw: 'Water', isl: 'ISL Tripataka (Water / Paani) 💧', asl: 'ASL W-Hand (Water) 💧' }
+        ];
+
+        const cycleIdx = Math.floor(time / 4) % simGests.length;
+        const currentSim = simGests[cycleIdx];
+        const simGesture = signLanguageMode === 'ISL' ? currentSim.isl : currentSim.asl;
         setDetectedGesture(simGesture);
-        setDetectedKeyword('Hello');
+        setDetectedKeyword(currentSim.kw);
         setHandCount(1);
         setTrackingConfidence(99);
         setGestureStability(100);
 
-        // Auto-commit simulated demo token once
-        if (!lastCommittedKeywordRef.current) {
-          lastCommittedKeywordRef.current = 'Hello';
-          lastCommitTimeRef.current = Date.now();
-          commitDetectedToken('Hello');
+        // Auto-commit simulated demo token when gesture changes or every 4s
+        const now = Date.now();
+        if (currentSim.kw !== lastCommittedKeywordRef.current && (now - lastCommitTimeRef.current > 3000)) {
+          lastCommittedKeywordRef.current = currentSim.kw;
+          lastCommitTimeRef.current = now;
+          commitDetectedToken(currentSim.kw);
         }
       }
       animFrameIdRef.current = requestAnimationFrame(predictLoop);
@@ -710,17 +695,11 @@ export function DeafView({
     }, 3500);
   };
 
-  // Add detected gesture to raw sign tokens with visual pop and auto-formulate
+  // Add detected gesture to raw sign tokens via commitDetectedToken (Fixes Task 1)
   const addTokenToSequence = (token) => {
     if (!token) return;
-    console.log(`[SignSync DeafView] Added token: "${token}"`);
-    setJustAddedToken(token);
-    setTimeout(() => setJustAddedToken(null), 1200);
-    setRawSignTokens(prev => {
-      const updated = [...prev.slice(-4), token];
-      triggerAutoFormulation(updated);
-      return updated;
-    });
+    console.log(`[SignSync DeafView] Adding explicit token: "${token}"`);
+    commitDetectedToken(token);
   };
 
   // Clear all tokens and formulated sentence
@@ -1141,7 +1120,7 @@ export function DeafView({
 
           </div>
 
-          {/* Quick Sign Shortcut Badges */}
+          {/* Quick Sign Shortcut Badges (All Multi-Gestures) */}
           <div className="hidden lg:flex items-center gap-1.5 text-xs text-slate-400">
             <span className="text-[11px] text-slate-500">Quick Tokens:</span>
             <button 
@@ -1151,16 +1130,34 @@ export function DeafView({
               + Hello 👋
             </button>
             <button 
-              onClick={() => addTokenToSequence('Water')}
-              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] transition-colors cursor-pointer"
+              onClick={() => addTokenToSequence('Yes')}
+              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-300 text-[11px] transition-colors cursor-pointer"
             >
-              + Water 💧
+              + Yes ✊
+            </button>
+            <button 
+              onClick={() => addTokenToSequence('No')}
+              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-rose-300 text-[11px] transition-colors cursor-pointer"
+            >
+              + No ✌️
+            </button>
+            <button 
+              onClick={() => addTokenToSequence('Stop')}
+              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 text-[11px] transition-colors cursor-pointer"
+            >
+              + Stop ✋
             </button>
             <button 
               onClick={() => addTokenToSequence('Help')}
-              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] transition-colors cursor-pointer"
+              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 text-[11px] transition-colors cursor-pointer"
             >
               + Help 🆘
+            </button>
+            <button 
+              onClick={() => addTokenToSequence('Water')}
+              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-blue-300 text-[11px] transition-colors cursor-pointer"
+            >
+              + Water 💧
             </button>
           </div>
 

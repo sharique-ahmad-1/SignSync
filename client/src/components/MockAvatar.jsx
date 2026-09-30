@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -55,11 +55,33 @@ export function MockAvatar({
   const fileInputRef = useRef(null);
   const lastProcessedTextRef = useRef('');
 
+  // Central bone animation dispatcher (Fixes Task 2: 3D Avatar Voice Control)
+  const executeSignPose = useCallback((sign) => {
+    if (!sign) return;
+    currentSignRef.current = sign;
+
+    if (!threeStateRef.current) return;
+
+    const pose = sign.bonePose || {};
+    const rShoulder = pose.rightShoulder || pose.rightArm || [0.9, -0.2, 0.5];
+    const rElbow = pose.rightElbow || [0, -0.6, 0.4];
+    const lShoulder = pose.leftShoulder || pose.leftArm || [-0.2, 0, 0];
+    const lElbow = pose.leftElbow || [0, 0, 0];
+    const headRot = pose.head || [0.1, 0, 0];
+
+    threeStateRef.current.targetRightRot = rShoulder;
+    threeStateRef.current.targetRightElbowRot = rElbow;
+    threeStateRef.current.targetLeftRot = lShoulder;
+    threeStateRef.current.targetLeftElbowRot = lElbow;
+    threeStateRef.current.targetHeadRot = headRot;
+
+    console.log(`[MockAvatar] 3D Animation executed for gloss "${sign.gloss || sign.keyword}":`, { rShoulder, rElbow });
+  }, []);
+
   // Parse speech or input into ISL/ASL Gloss Sequence (Task 2)
   useEffect(() => {
     if (!transcribedText || !transcribedText.trim()) return;
     const cleanText = transcribedText.trim();
-    if (cleanText === lastProcessedTextRef.current) return;
 
     let isMounted = true;
     setIsNlpParsing(true);
@@ -68,19 +90,15 @@ export function MockAvatar({
       // 1. Instant fallback parse using ISL SOV grammar rules for zero-delay response
       const immediateGlosses = parseTextToSignGlosses(cleanText);
       if (isMounted && immediateGlosses.length > 0) {
-        const newKeys = immediateGlosses.map(g => g.keyword).join(',');
-        const curKeys = activeSequence.map(g => g.keyword).join(',');
-        
-        if (newKeys !== curKeys) {
-          console.log(`[MockAvatar] Setting new gloss sequence for "${cleanText}":`, immediateGlosses.map(g => g.gloss));
-          lastProcessedTextRef.current = cleanText;
-          setActiveSequence(immediateGlosses);
-          setCurrentIndex(0);
-          setIsPlaying(true);
-          preloadAvatarAssets(immediateGlosses);
-          if (onSignRecognized) {
-            onSignRecognized(immediateGlosses.map(g => g.keyword));
-          }
+        console.log(`[MockAvatar] Voice input received "${cleanText}", triggering 3D avatar animation:`, immediateGlosses.map(g => g.gloss));
+        lastProcessedTextRef.current = cleanText;
+        setActiveSequence(immediateGlosses);
+        setCurrentIndex(0);
+        setIsPlaying(true);
+        executeSignPose(immediateGlosses[0]);
+        preloadAvatarAssets(immediateGlosses);
+        if (onSignRecognized) {
+          onSignRecognized(immediateGlosses.map(g => g.keyword));
         }
       }
 
@@ -90,12 +108,8 @@ export function MockAvatar({
         if (isMounted && keywords && keywords.length > 0) {
           const refinedGlosses = parseTextToSignGlosses(keywords.join(' '));
           if (refinedGlosses.length > 0) {
-            const refinedKeys = refinedGlosses.map(g => g.keyword).join(',');
-            const curKeys = activeSequence.map(g => g.keyword).join(',');
-            if (refinedKeys !== curKeys) {
-              setActiveSequence(refinedGlosses);
-              preloadAvatarAssets(refinedGlosses);
-            }
+            setActiveSequence(refinedGlosses);
+            preloadAvatarAssets(refinedGlosses);
           }
         }
       } catch (e) {
@@ -110,15 +124,18 @@ export function MockAvatar({
     return () => {
       isMounted = false;
     };
-  }, [transcribedText, onSignRecognized]);
+  }, [transcribedText, executeSignPose, onSignRecognized]);
 
   // Handle Repeat Trigger from Deaf user
   useEffect(() => {
     if (repeatTrigger) {
       setCurrentIndex(0);
       setIsPlaying(true);
+      if (activeSequence && activeSequence[0]) {
+        executeSignPose(activeSequence[0]);
+      }
     }
-  }, [repeatTrigger]);
+  }, [repeatTrigger, activeSequence, executeSignPose]);
 
   // Sequential progression timer
   useEffect(() => {
@@ -129,16 +146,17 @@ export function MockAvatar({
 
     timerRef.current = setTimeout(() => {
       setCurrentIndex(prev => {
-        if (prev + 1 < activeSequence.length) {
-          return prev + 1;
-        } else {
-          return 0; // loop sequence
+        const nextIdx = (prev + 1 < activeSequence.length) ? prev + 1 : 0;
+        const nextItem = activeSequence[nextIdx];
+        if (nextItem) {
+          executeSignPose(nextItem);
         }
+        return nextIdx;
       });
     }, duration);
 
     return () => clearTimeout(timerRef.current);
-  }, [isPlaying, currentIndex, activeSequence, playbackSpeed]);
+  }, [isPlaying, currentIndex, activeSequence, playbackSpeed, executeSignPose]);
 
   const currentSign = activeSequence[currentIndex] || AVATAR_VOCABULARY.hello;
 
@@ -298,6 +316,8 @@ export function MockAvatar({
     scene.add(avatarGroup);
 
     // Store state in ref
+    const initPose = (activeSequence && activeSequence[0]) ? activeSequence[0] : AVATAR_VOCABULARY.hello;
+    const initB = initPose.bonePose || {};
     threeStateRef.current = {
       scene,
       camera,
@@ -313,10 +333,13 @@ export function MockAvatar({
       leftShoulder,
       leftElbow,
       customBones: {},
-      targetRightRot: [0, 0, 0],
-      targetLeftRot: [0, 0, 0],
-      targetHeadRot: [0, 0, 0]
+      targetRightRot: initB.rightShoulder || [0.9, -0.2, 0.5],
+      targetRightElbowRot: initB.rightElbow || [0, -0.6, 0.4],
+      targetLeftRot: initB.leftShoulder || [-0.2, 0, 0],
+      targetLeftElbowRot: initB.leftElbow || [0, 0, 0],
+      targetHeadRot: initB.head || [0.1, 0, 0]
     };
+    executeSignPose(initPose);
 
     // 6. Try to automatically load local Verity 3D model if present in /models/verity.glb
     const gltfLoader = new GLTFLoader();
@@ -590,27 +613,10 @@ export function MockAvatar({
 
   // Update 3D Target Pose and cache reference when currentSign changes
   useEffect(() => {
-    if (!currentSign) return;
-    currentSignRef.current = currentSign;
-
-    if (!threeStateRef.current) return;
-
-    const pose = currentSign.bonePose || {};
-
-    const rShoulder = pose.rightShoulder || pose.rightArm || [0.9, -0.2, 0.5];
-    const rElbow = pose.rightElbow || [0, -0.6, 0.4];
-    const lShoulder = pose.leftShoulder || pose.leftArm || [-0.2, 0, 0];
-    const lElbow = pose.leftElbow || [0, 0, 0];
-    const headRot = pose.head || [0.1, 0, 0];
-
-    threeStateRef.current.targetRightRot = rShoulder;
-    threeStateRef.current.targetRightElbowRot = rElbow;
-    threeStateRef.current.targetLeftRot = lShoulder;
-    threeStateRef.current.targetLeftElbowRot = lElbow;
-    threeStateRef.current.targetHeadRot = headRot;
-
-    console.log(`[MockAvatar] 3D Animation triggered for gloss "${currentSign.gloss}":`, { rShoulder, rElbow });
-  }, [currentSign]);
+    if (currentSign) {
+      executeSignPose(currentSign);
+    }
+  }, [currentSign, executeSignPose]);
 
   // Synchronized progress countdown for active sign gloss (Task 2)
   useEffect(() => {
@@ -631,9 +637,11 @@ export function MockAvatar({
 
   const handleManualSelect = (keyword) => {
     const item = AVATAR_VOCABULARY[keyword] || AVATAR_VOCABULARY.hello;
-    setActiveSequence([{ keyword, ...item }]);
+    const signObj = { keyword, ...item };
+    setActiveSequence([signObj]);
     setCurrentIndex(0);
     setIsPlaying(true);
+    executeSignPose(signObj);
   };
 
   return (
