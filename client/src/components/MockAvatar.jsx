@@ -54,63 +54,63 @@ function extractSkeletonBones(root) {
     if (!node.isBone) return;
     const rawName = node.name || '';
     const cleanName = rawName
-      .replace(/^(mixamorig[:_]?|bip01[:_]?|ValveBiped[:_]?|armature[:_]?)/i, '')
+      .replace(/^(mixamorig[:_]?|bip01[:_]?|ValveBiped[:_]?|armature[:_]?|Wolf3D[:_]?|RPM[:_]?)/i, '')
       .replace(/[^a-zA-Z0-9]/g, '');
     const lower = cleanName.toLowerCase();
 
     // Body & Head
     if (lower === 'head') bones.Head = node;
     else if (lower === 'neck') bones.Neck = node;
-    else if (lower === 'spine2' || lower === 'chest') bones.Spine2 = node;
+    else if (lower === 'spine2' || lower === 'chest' || lower === 'upperchest') bones.Spine2 = node;
     else if (lower === 'spine1') bones.Spine1 = node;
     else if (lower === 'spine' || lower === 'spine0') bones.Spine = node;
     else if (lower === 'hips' || lower === 'pelvis') bones.Hips = node;
 
     // Right Arm & Hand
-    else if (lower === 'rightshoulder' || lower === 'rshoulder') bones.RightShoulder = node;
-    else if (lower === 'rightarm' || lower === 'rightupperarm' || lower === 'rarm') bones.RightArm = node;
-    else if (lower === 'rightforearm' || lower === 'rightlowerarm' || lower === 'rforearm') bones.RightForeArm = node;
-    else if (lower === 'righthand' || lower === 'rhand') bones.RightHand = node;
+    else if (lower === 'rightshoulder' || lower === 'rshoulder' || lower === 'shoulderright' || lower === 'shoulderr') bones.RightShoulder = node;
+    else if (lower === 'rightarm' || lower === 'rightupperarm' || lower === 'rarm' || lower === 'armright' || lower === 'upperarmr') bones.RightArm = node;
+    else if (lower === 'rightforearm' || lower === 'rightlowerarm' || lower === 'rforearm' || lower === 'forearmright' || lower === 'lowerarmr') bones.RightForeArm = node;
+    else if (lower === 'righthand' || lower === 'rhand' || lower === 'handright' || lower === 'handr') bones.RightHand = node;
 
     // Right Fingers
-    else if (lower === 'righthandthumb1' || lower === 'rthumb1') bones.RightHandThumb1 = node;
-    else if (lower === 'righthandthumb2' || lower === 'rthumb2') bones.RightHandThumb2 = node;
-    else if (lower === 'righthandthumb3' || lower === 'rthumb3') bones.RightHandThumb3 = node;
-    else if (lower === 'righthandindex1' || lower === 'rindex1') bones.RightHandIndex1 = node;
-    else if (lower === 'righthandindex2' || lower === 'rindex2') bones.RightHandIndex2 = node;
-    else if (lower === 'righthandindex3' || lower === 'rindex3') bones.RightHandIndex3 = node;
-    else if (lower === 'righthandmiddle1' || lower === 'rmiddle1') bones.RightHandMiddle1 = node;
-    else if (lower === 'righthandmiddle2' || lower === 'rmiddle2') bones.RightHandMiddle2 = node;
-    else if (lower === 'righthandmiddle3' || lower === 'rmiddle3') bones.RightHandMiddle3 = node;
-    else if (lower === 'righthandring1' || lower === 'rring1') bones.RightHandRing1 = node;
-    else if (lower === 'righthandring2' || lower === 'rring2') bones.RightHandRing2 = node;
-    else if (lower === 'righthandring3' || lower === 'rring3') bones.RightHandRing3 = node;
-    else if (lower === 'righthandpinky1' || lower === 'rpinky1') bones.RightHandPinky1 = node;
-    else if (lower === 'righthandpinky2' || lower === 'rpinky2') bones.RightHandPinky2 = node;
-    else if (lower === 'righthandpinky3' || lower === 'rpinky3') bones.RightHandPinky3 = node;
+    else if (/^r(ight)?(hand)?thumb1$/i.test(cleanName) || lower === 'thumb1r') bones.RightHandThumb1 = node;
+    else if (/^r(ight)?(hand)?thumb2$/i.test(cleanName) || lower === 'thumb2r') bones.RightHandThumb2 = node;
+    else if (/^r(ight)?(hand)?thumb3$/i.test(cleanName) || lower === 'thumb3r') bones.RightHandThumb3 = node;
+    else if (/^r(ight)?(hand)?index1$/i.test(cleanName) || lower === 'index1r') bones.RightHandIndex1 = node;
+    else if (/^r(ight)?(hand)?index2$/i.test(cleanName) || lower === 'index2r') bones.RightHandIndex2 = node;
+    else if (/^r(ight)?(hand)?index3$/i.test(cleanName) || lower === 'index3r') bones.RightHandIndex3 = node;
+    else if (/^r(ight)?(hand)?middle1$/i.test(cleanName) || lower === 'middle1r') bones.RightHandMiddle1 = node;
+    else if (/^r(ight)?(hand)?middle2$/i.test(cleanName) || lower === 'middle2r') bones.RightHandMiddle2 = node;
+    else if (/^r(ight)?(hand)?middle3$/i.test(cleanName) || lower === 'middle3r') bones.RightHandMiddle3 = node;
+    else if (/^r(ight)?(hand)?ring1$/i.test(cleanName) || lower === 'ring1r') bones.RightHandRing1 = node;
+    else if (/^r(ight)?(hand)?ring2$/i.test(cleanName) || lower === 'ring2r') bones.RightHandRing2 = node;
+    else if (/^r(ight)?(hand)?ring3$/i.test(cleanName) || lower === 'ring3r') bones.RightHandRing3 = node;
+    else if (/^r(ight)?(hand)?pinky1$/i.test(cleanName) || lower === 'pinky1r' || lower === 'little1r') bones.RightHandPinky1 = node;
+    else if (/^r(ight)?(hand)?pinky2$/i.test(cleanName) || lower === 'pinky2r' || lower === 'little2r') bones.RightHandPinky2 = node;
+    else if (/^r(ight)?(hand)?pinky3$/i.test(cleanName) || lower === 'pinky3r' || lower === 'little3r') bones.RightHandPinky3 = node;
 
     // Left Arm & Hand
-    else if (lower === 'leftshoulder' || lower === 'lshoulder') bones.LeftShoulder = node;
-    else if (lower === 'leftarm' || lower === 'leftupperarm' || lower === 'larm') bones.LeftArm = node;
-    else if (lower === 'leftforearm' || lower === 'leftlowerarm' || lower === 'lforearm') bones.LeftForeArm = node;
-    else if (lower === 'lefthand' || lower === 'lhand') bones.LeftHand = node;
+    else if (lower === 'leftshoulder' || lower === 'lshoulder' || lower === 'shoulderleft' || lower === 'shoulderl') bones.LeftShoulder = node;
+    else if (lower === 'leftarm' || lower === 'leftupperarm' || lower === 'larm' || lower === 'armleft' || lower === 'upperarml') bones.LeftArm = node;
+    else if (lower === 'leftforearm' || lower === 'leftlowerarm' || lower === 'lforearm' || lower === 'forearmleft' || lower === 'lowerarml') bones.LeftForeArm = node;
+    else if (lower === 'lefthand' || lower === 'lhand' || lower === 'handleft' || lower === 'handl') bones.LeftHand = node;
 
     // Left Fingers
-    else if (lower === 'lefthandthumb1' || lower === 'lthumb1') bones.LeftHandThumb1 = node;
-    else if (lower === 'lefthandthumb2' || lower === 'lthumb2') bones.LeftHandThumb2 = node;
-    else if (lower === 'lefthandthumb3' || lower === 'lthumb3') bones.LeftHandThumb3 = node;
-    else if (lower === 'lefthandindex1' || lower === 'lindex1') bones.LeftHandIndex1 = node;
-    else if (lower === 'lefthandindex2' || lower === 'lindex2') bones.LeftHandIndex2 = node;
-    else if (lower === 'lefthandindex3' || lower === 'lindex3') bones.LeftHandIndex3 = node;
-    else if (lower === 'lefthandmiddle1' || lower === 'lmiddle1') bones.LeftHandMiddle1 = node;
-    else if (lower === 'lefthandmiddle2' || lower === 'lmiddle2') bones.LeftHandMiddle2 = node;
-    else if (lower === 'lefthandmiddle3' || lower === 'lmiddle3') bones.LeftHandMiddle3 = node;
-    else if (lower === 'lefthandring1' || lower === 'lring1') bones.LeftHandRing1 = node;
-    else if (lower === 'lefthandring2' || lower === 'lring2') bones.LeftHandRing2 = node;
-    else if (lower === 'lefthandring3' || lower === 'lring3') bones.LeftHandRing3 = node;
-    else if (lower === 'lefthandpinky1' || lower === 'lpinky1') bones.LeftHandPinky1 = node;
-    else if (lower === 'lefthandpinky2' || lower === 'lpinky2') bones.LeftHandPinky2 = node;
-    else if (lower === 'lefthandpinky3' || lower === 'lpinky3') bones.LeftHandPinky3 = node;
+    else if (/^l(eft)?(hand)?thumb1$/i.test(cleanName) || lower === 'thumb1l') bones.LeftHandThumb1 = node;
+    else if (/^l(eft)?(hand)?thumb2$/i.test(cleanName) || lower === 'thumb2l') bones.LeftHandThumb2 = node;
+    else if (/^l(eft)?(hand)?thumb3$/i.test(cleanName) || lower === 'thumb3l') bones.LeftHandThumb3 = node;
+    else if (/^l(eft)?(hand)?index1$/i.test(cleanName) || lower === 'index1l') bones.LeftHandIndex1 = node;
+    else if (/^l(eft)?(hand)?index2$/i.test(cleanName) || lower === 'index2l') bones.LeftHandIndex2 = node;
+    else if (/^l(eft)?(hand)?index3$/i.test(cleanName) || lower === 'index3l') bones.LeftHandIndex3 = node;
+    else if (/^l(eft)?(hand)?middle1$/i.test(cleanName) || lower === 'middle1l') bones.LeftHandMiddle1 = node;
+    else if (/^l(eft)?(hand)?middle2$/i.test(cleanName) || lower === 'middle2l') bones.LeftHandMiddle2 = node;
+    else if (/^l(eft)?(hand)?middle3$/i.test(cleanName) || lower === 'middle3l') bones.LeftHandMiddle3 = node;
+    else if (/^l(eft)?(hand)?ring1$/i.test(cleanName) || lower === 'ring1l') bones.LeftHandRing1 = node;
+    else if (/^l(eft)?(hand)?ring2$/i.test(cleanName) || lower === 'ring2l') bones.LeftHandRing2 = node;
+    else if (/^l(eft)?(hand)?ring3$/i.test(cleanName) || lower === 'ring3l') bones.LeftHandRing3 = node;
+    else if (/^l(eft)?(hand)?pinky1$/i.test(cleanName) || lower === 'pinky1l' || lower === 'little1l') bones.LeftHandPinky1 = node;
+    else if (/^l(eft)?(hand)?pinky2$/i.test(cleanName) || lower === 'pinky2l' || lower === 'little2l') bones.LeftHandPinky2 = node;
+    else if (/^l(eft)?(hand)?pinky3$/i.test(cleanName) || lower === 'pinky3l' || lower === 'little3l') bones.LeftHandPinky3 = node;
   });
   return bones;
 }
@@ -407,33 +407,44 @@ export function MockAvatar({
       activeSign: (activeSequence && activeSequence[0]) ? activeSequence[0] : AVATAR_VOCABULARY.hello
     };
 
-    // 6. Automatic Pre-generated 3D Character Loader (Task 1)
+    // 6. Production 3D Character CDN Loader (Phase 13 Task 2)
     const loadPreGeneratedModel = () => {
       setModelLoading(true);
       setModelError(null);
       const loader = new GLTFLoader();
 
-      const tryLoadPath = (url, fallbackUrl = null) => {
+      const candidateModels = [
+        { url: 'https://models.readyplayer.me/64b54e7d4a51e6000e478546.glb', label: 'ReadyPlayerMe 3D Avatar (CDN)' },
+        { url: 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@dev/examples/models/gltf/Xbot.glb', label: 'Mixamo 3D Avatar (jsDelivr CDN)' },
+        { url: 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/models/gltf/Xbot.glb', label: 'Mixamo 3D Avatar (GitHub CDN)' },
+        { url: '/models/avatar.glb', label: 'Local 3D Avatar (.glb)' },
+        { url: '/models/verity.glb', label: 'Local Verity Avatar (.glb)' }
+      ];
+
+      const tryNextCandidate = (index) => {
+        if (index >= candidateModels.length) {
+          console.log('[MockAvatar] External and local GLBs unavailable; running on Procedural Rigged Armature.');
+          setModelLoading(false);
+          setModelType('Procedural Rigged Armature');
+          return;
+        }
+
+        const candidate = candidateModels[index];
         loader.load(
-          url,
+          candidate.url,
           (gltf) => {
-            console.log(`[MockAvatar] Successfully loaded 3D GLB model from ${url}:`, gltf);
-            applyGLTFToScene(gltf, 'Rigged Mixamo Avatar (.glb)');
+            console.log(`[MockAvatar] Successfully loaded 3D GLB from ${candidate.url}:`, gltf);
+            applyGLTFToScene(gltf, candidate.label);
           },
           undefined,
           (err) => {
-            console.warn(`[MockAvatar] Notice loading ${url}:`, err);
-            if (fallbackUrl) {
-              tryLoadPath(fallbackUrl, null);
-            } else {
-              setModelLoading(false);
-              setModelType('Procedural Rigged Armature');
-            }
+            console.warn(`[MockAvatar] Notice loading candidate ${candidate.url}:`, err);
+            tryNextCandidate(index + 1);
           }
         );
       };
 
-      tryLoadPath('/models/avatar.glb', '/models/verity.glb');
+      tryNextCandidate(0);
     };
 
     loadPreGeneratedModel();

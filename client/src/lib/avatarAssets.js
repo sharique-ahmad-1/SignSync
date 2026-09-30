@@ -923,44 +923,133 @@ export function parseTextToSignGlosses(rawText) {
   const orderedWords = reorderToISLGrammar(rawWords);
   const matchedGlosses = [];
 
+  // Synonym and stem normalization mapping for robust word-level resolution
+  const SYNONYM_MAP = {
+    hi: 'hello',
+    namaste: 'hello',
+    greetings: 'hello',
+    bye: 'hello',
+    goodbye: 'hello',
+    assist: 'help',
+    assistance: 'help',
+    sahayata: 'help',
+    yeah: 'yes',
+    yep: 'yes',
+    haan: 'yes',
+    correct: 'yes',
+    sure: 'yes',
+    nope: 'no',
+    nah: 'no',
+    nahi: 'no',
+    drink: 'drink',
+    water: 'water',
+    paani: 'water',
+    thirsty: 'water',
+    food: 'food',
+    eat: 'eat',
+    eating: 'eat',
+    khana: 'food',
+    khao: 'eat',
+    meal: 'food',
+    dinner: 'food',
+    lunch: 'food',
+    breakfast: 'food',
+    hungry: 'hungry',
+    bhookh: 'hungry',
+    starving: 'hungry',
+    thanks: 'thank',
+    dhanyavaad: 'thank',
+    appreciate: 'thank',
+    grateful: 'thank',
+    kripya: 'please',
+    kindly: 'please',
+    doc: 'doctor',
+    physician: 'doctor',
+    chikitsak: 'doctor',
+    medical: 'doctor',
+    urgent: 'emergency',
+    aapatkaal: 'emergency',
+    clinic: 'hospital',
+    aspataal: 'hospital',
+    meds: 'medicine',
+    pills: 'medicine',
+    dawai: 'medicine',
+    hurt: 'pain',
+    hurts: 'pain',
+    ache: 'pain',
+    aching: 'pain',
+    dard: 'pain',
+    cop: 'police',
+    cops: 'police',
+    pulis: 'police',
+    flames: 'fire',
+    aag: 'fire',
+    aang: 'fire',
+    house: 'home',
+    ghar: 'home',
+    restroom: 'toilet',
+    washroom: 'toilet',
+    bathroom: 'toilet',
+    shauchalay: 'toilet',
+    want: 'need',
+    require: 'need',
+    zaroorat: 'need',
+    ill: 'sick',
+    unwell: 'sick',
+    fever: 'sick',
+    bimaar: 'sick',
+    college: 'school',
+    class: 'school',
+    vidyalaya: 'school',
+    cash: 'money',
+    pay: 'money',
+    rupees: 'money',
+    dollars: 'money',
+    paisa: 'money',
+    halt: 'stop',
+    ruko: 'stop',
+    pyar: 'love',
+    care: 'love',
+    dost: 'friend',
+    buddy: 'friend',
+    parents: 'family',
+    mother: 'family',
+    father: 'family',
+    parivaar: 'family',
+    phone: 'call',
+    ring: 'call',
+    clock: 'time',
+    hour: 'time',
+    samay: 'time',
+    kahan: 'where',
+    kya: 'what',
+    great: 'good',
+    accha: 'good',
+    fine: 'good',
+    bura: 'bad',
+    terrible: 'bad',
+    aur: 'more',
+    apologize: 'sorry',
+    maaf: 'sorry',
+    aap: 'you',
+    tum: 'you',
+    main: 'me',
+    myself: 'me',
+    shanti: 'peace'
+  };
+
   for (const word of orderedWords) {
-    if (AVATAR_VOCABULARY[word]) {
+    const canonical = SYNONYM_MAP[word] || word;
+    if (AVATAR_VOCABULARY[canonical]) {
       matchedGlosses.push({
-        keyword: word,
-        ...AVATAR_VOCABULARY[word],
+        keyword: canonical,
+        ...AVATAR_VOCABULARY[canonical],
         type: 'word'
       });
-    } else if (word.length > 3 && word.length <= 10) {
-      // Fingerspelling fallback for names and unmapped words (e.g. "Sharique")
-      // Phase 12: Restricted to words > 3 chars to prevent spelling 'to', 'if', etc.
-      for (const char of word) {
-        if (/[a-z0-9]/i.test(char)) {
-          matchedGlosses.push({
-            keyword: char.toUpperCase(),
-            gloss: char.toUpperCase(),
-            label: `Letter ${char.toUpperCase()}`,
-            hindi: char.toUpperCase(),
-            category: 'Fingerspelling',
-            handShape: `Letter ${char.toUpperCase()} Posture`,
-            durationMs: 1200,
-            description: `ISL Fingerspelling posture for letter ${char.toUpperCase()}`,
-            videoUrl: 'https://media.giphy.com/media/26gsjCZpPolPr3sBy/giphy.gif',
-            bonePose: {
-              rightShoulder: [0.85, 0.05, 0.45],
-              rightElbow: [0, -0.6, 0.35],
-              leftShoulder: [-0.2, 0, 0],
-              leftElbow: [0, 0, 0],
-              head: [0.05, 0, 0]
-            },
-            cycle: { joint: 'rightShoulder', axis: 'x', freq: 3, amp: 0.12 },
-            type: 'letter'
-          });
-        }
-      }
     }
   }
 
-  // If no words matched, fallback to default 'hello'
+  // If no words matched, fallback to default full word 'hello'
   if (matchedGlosses.length === 0) {
     matchedGlosses.push({
       keyword: 'hello',
