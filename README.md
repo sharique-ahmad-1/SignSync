@@ -1,53 +1,45 @@
 # 🖐️ SignSync - Real-Time Smart Two-Way Communicator
 
 **Accessibility Hackathon Project**  
-*Empowering seamless, bidirectional communication between Deaf and Hearing users in real time.*
+*Empowering seamless, bidirectional communication between Deaf and Hearing users in real time with Offline AI & 3D ISL Avatars.*
 
 ---
 
 ## 🌟 Overview
 
-**SignSync** bridges the communication barrier between Deaf/Hard-of-Hearing individuals and Hearing individuals through a smart, two-way split-screen interface:
-1. **Deaf User Screen (Top Half)**: Real-time webcam feed with **Google MediaPipe Hand Landmarker** (`@mediapipe/tasks-vision`) tracking 21 skeletal hand landmarks in 3D, gesture detection heuristics, and quick response triggers (**Confirm Receipt**, **Repeat**, **Clarify**).
-2. **Hearing User Screen (Bottom Half)**: Voice-to-Text powered by the native **Web Speech API** (`window.SpeechRecognition`), audio soundwave visualization, and an interactive **Mock Avatar System** that translates transcribed speech keywords into animated sign language gestures in sequential playback.
+**SignSync** is a state-of-the-art accessibility application bridging the communication barrier between Deaf/Hard-of-Hearing individuals and Hearing individuals through an interactive, AI-powered split-screen interface:
+1. **Deaf User Screen (Top Half)**: Real-time webcam feed with **Google MediaPipe Hand Landmarker** (`@mediapipe/tasks-vision`) tracking 21 skeletal hand landmarks in 3D, gesture detection heuristics, **Aceternity Glowing Effect** audio flash alerts, **3D Card Effect** action triggers (**Confirm Receipt**, **Repeat**, **Clarify**), and **SmolLM2 Offline NLP** sentence formulation with one-click **Text-to-Speech**.
+2. **Hearing User Screen (Bottom Half)**: Voice capture powered by the native **Web Speech API** with **Lottie Radar Pulse**, real-time text transcription animated via **Aceternity Text Generate Effect**, and an interactive **3D Avatar Engine & Gesture Video System** (inspired by Sijosaju, SignFlow, and Sign-Kit) translating transcribed speech into Indian Sign Language (ISL) gloss sequences.
 
 ---
 
-## 🚀 Key Features Built in Phase 1
+## 🚀 Phase 2 Upgrades: UI/UX Polish, Offline AI, & 3D Avatar
 
-### 1. Split-Screen Accessible UI (Tailwind CSS)
-- **High-contrast, modern dark mode** design with glassmorphism and accessible color accents (cyan for vision tracking, emerald for audio/confirmation, indigo for speech translation).
-- **View Mode Switcher**: Toggle between 50/50 Split View, Deaf Focus Mode, or Hearing Focus Mode.
-- **Accessible Visual Alerts**: When the Hearing user speaks, the Deaf user's screen emits an ambient visual vibration/glow, ensuring deaf individuals receive immediate non-auditory notification.
+### 1. Premium UI/UX (Aceternity UI & Animations)
+- **Aurora Background**: Ambient dynamic aurora gradient waves (`[background-image:var(--dark-gradient),var(--aurora)]`) wrapping the entire application layout.
+- **Glowing Effect**: Dynamic glowing radiant border & aura around the Deaf user's video container that reacts when the Hearing user speaks (replacing basic CSS borders).
+- **3D Card Effect**: Interactive perspective tilt (`perspective: 1000px`, `rotateX`, `rotateY`, `translateZ`) wrapping the core action buttons (**Confirm Receipt**, **Repeat**, and **Clarify**).
+- **Text Generate Effect**: Staggered word-by-word blur-to-focus animation for real-time speech transcription.
+- **Animated Tabs**: Smooth spring-animated pill indicator (`layoutId="activeTabPill"`) for layout modes (**Split View**, **Deaf Focus**, **Hearing Focus**).
+- **React Bits Micro-Interactions**: Physics-based `MagneticButton` and `ShinyButton` controls with spring cursor attraction on the Avatar player.
+- **Lottie Animations**: Embedded lightweight Lottie JSON animations for radar listening pulses, AI neural processing, and vision hand tracking.
 
-### 2. Google MediaPipe Hand Landmarker (`@mediapipe/tasks-vision`)
-- Continuous tracking of **21 hand joints & skeletal bones** per hand rendered on a synchronized HTML5 `<canvas>` overlay.
-- Dual GPU/CPU delegate fallback for maximum browser and device compatibility.
-- Real-time gesture classification (Open Palm / Wave 👋, Thumbs Up 👍, Victory ✌️, Fist ✊, Pointing ☝️, I Love You 🤟).
-- **Simulation Demo Mode**: If a webcam is unavailable or permission is denied during hackathon presentation, a synthetic animated hand tracking simulation is available with one click.
+### 2. Offline NLP Integration (SmolLM2 via Transformers.js)
+- Integrated `@xenova/transformers` running **Xenova/SmolLM2-135M-Instruct** directly in the browser via WebAssembly / WebGPU.
+- **Smart Sentence Reconstruction**: Raw sign tokens detected from MediaPipe gestures or user signs (e.g., `['Me', 'Hungry', 'Food']`) are formulated into natural, fluent English sentences (e.g., *"I am hungry and would like some food."*).
+- **Vocalize Aloud**: Direct integration with the native SpeechSynthesis API (`window.speechSynthesis`) allowing the Deaf user to speak the formulated sentence aloud to the Hearing user.
+- **Non-blocking Asynchronous Loading**: Model weights load in the background with live Lottie processing telemetry and instant heuristic grammar fallback.
 
-### 3. Native Web Speech Recognition
-- Continuous, low-latency voice capture via `SpeechRecognition` / `webkitSpeechRecognition`.
-- Real-time interim & final text transcript display.
-- One-click copy, clear, and manual keyboard input fallback.
+### 3. ISL 3D Avatar & Gesture Engine (Insights from Top Repositories)
+Architectural patterns synthesized from:
+- **[Sijosaju/Speech-to-ISL](https://github.com/Sijosaju/Speech-to-Indian-Sign-Language-using-3D-Avatar-Animations)**: English-to-ISL grammar extraction and GLTF 3D animation mapping.
+- **[Leander-bai/SignFlow](https://github.com/Leander-bai/SignFlow)**: ISL Gloss conversion, fingerspelling fallback for unknown words, and video sequence orchestration.
+- **[spectre900/Sign-Kit](https://github.com/spectre900/Sign-Kit-An-Avatar-based-ISL-Toolkit)**: Three.js WebGL humanoid avatar bone rigging and continuous gesture animation.
 
-### 4. Mock Avatar Sign Language System
-- Automatically parses spoken or typed phrases for sign language vocabulary (e.g., *hello*, *help*, *thank you*, *yes*, *no*, *water*, *please*, *goodbye*, *friend*, *love*).
-- Sequentially displays animated ASL visual demonstrations, rich motion descriptions, category badges, and timeline scrubber.
-- Variable playback speeds (0.5x, 1.0x, 1.5x) and one-click replay.
-- Interactive **Sign Library** drawer to preview all available sign animations anytime.
-
-### 5. Essential Accessibility Action Triggers
-- **Confirm Receipt**: Instant positive acknowledgment badge sent from Deaf user to Hearing user.
-- **Repeat**: Prompts the Mock Avatar and conversation system to replay the last sign sequence.
-- **Clarify**: Signals the Hearing user to rephrase or slow down.
-- **Two-Way Conversation Timeline**: Chronological event history tracking all spoken, signed, and action exchanges.
-
-### 6. Node.js Express Backend
-- `GET /api/health`: Health status, feature flags, and uptime metrics.
-- `GET /api/dictionary`: Dynamic sign vocabulary metadata and animation links.
-- `GET /api/messages` & `POST /api/messages`: Real-time conversation message store.
-- `POST /api/gemini/interpret`: Multimodal Gemini 1.5 pipeline stub ready for gesture-to-text classification.
+**Dual-Mode Avatar System**:
+- **Mode 1: 3D WebGL Avatar**: Three.js WebGL canvas rendering a 3D character with animated bone postures (torso, neck, head, shoulders, elbows, hands) interpolated via real-time lerp/slerp loops.
+- **Mode 2: HD Gesture Clips**: High-definition animated visual gesture sequences with category tagging and fingerspelling fallback.
+- **Asset Utility (`avatarAssets.js`)**: Dynamic gloss parsing, vocabulary dictionary, and asset preloader.
 
 ---
 
@@ -55,54 +47,54 @@
 
 ```
 SupSonic/
-├── client/                     # Vite + React Frontend
+├── client/                                # React (Vite) + Tailwind CSS + Framer Motion
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── DeafView.jsx               # Webcam + MediaPipe 21 hand landmarks & action buttons
-│   │   │   ├── HearingView.jsx            # Web Speech API + live transcript + Avatar embed
-│   │   │   ├── MockAvatar.jsx             # Keyword parser + sequential animated sign player
-│   │   │   ├── Navbar.jsx                 # Health indicators, layout toggle, system modal
+│   │   │   ├── ui/
+│   │   │   │   ├── aurora-background.jsx  # Aceternity Aurora Background
+│   │   │   │   ├── glowing-effect.jsx     # Aceternity Glowing Effect
+│   │   │   │   ├── 3d-card.jsx            # Aceternity 3D Card Effect
+│   │   │   │   ├── text-generate-effect.jsx # Aceternity Text Generate Effect
+│   │   │   │   ├── animated-tabs.jsx      # Aceternity Animated Tabs
+│   │   │   │   ├── react-bits-micro.jsx   # React Bits Magnetic & Shiny Buttons
+│   │   │   │   └── lottie-display.jsx     # Lottie React Animation Player
+│   │   │   ├── DeafView.jsx               # Webcam + MediaPipe + SmolLM2 NLP + 3D Action Cards
+│   │   │   ├── HearingView.jsx            # Web Speech + Text Generate Effect + 3D Avatar
+│   │   │   ├── MockAvatar.jsx             # Three.js 3D WebGL Avatar & HD Gesture Sequence
+│   │   │   ├── Navbar.jsx                 # Animated Tabs, Lottie status badges & modal trigger
 │   │   │   ├── ConversationLog.jsx        # Two-way dialogue history
-│   │   │   └── ConnectionStatusModal.jsx  # GitHub, Render & Supabase status breakdown
-│   │   ├── App.jsx
-│   │   ├── main.jsx
-│   │   └── index.css                      # Tailwind styling, neon glows & audio flash animations
-│   ├── vite.config.js                     # Proxy configured to Express backend
+│   │   │   └── ConnectionStatusModal.jsx  # GitHub, Render, Supabase & API status
+│   │   ├── lib/
+│   │   │   ├── utils.js                   # cn helper (clsx + tailwind-merge)
+│   │   │   ├── lottieData.js              # Radar, AI Processing & Vision Lottie JSONs
+│   │   │   ├── smolLM.js                  # Transformers.js SmolLM2-135M offline NLP loader
+│   │   │   └── avatarAssets.js            # ISL gloss parsing, bone poses & dictionary
+│   │   ├── App.jsx                        # Aurora wrapper & bidirectional event bus
+│   │   └── index.css                      # Tailwind, Aurora & Glowing Effect styles
+│   ├── tailwind.config.js                 # Aurora keyframes & color tokens
 │   └── package.json
-├── server/                     # Node.js + Express Backend
+├── server/                                # Node.js Express Backend
 │   ├── src/
 │   │   └── index.js                       # Express API endpoints & stubs
-│   ├── .env.example                       # Supabase and Gemini placeholders
 │   └── package.json
-├── package.json                # Root workspace scripts
 └── README.md
 ```
 
 ---
 
-## 🚦 Getting Started
+## 🚦 Running the Application
 
-### 1. Start Backend Server
-```bash
+### 1. Backend Server
+```powershell
 cd server
 npm start
-# Server starts on http://localhost:5000
+# API available at http://localhost:5000
 # Health check: http://localhost:5000/api/health
 ```
 
-### 2. Start Frontend Client
-```bash
+### 2. Frontend Application
+```powershell
 cd client
 npm run dev
-# App starts on http://localhost:5173
+# App available at http://localhost:5173
 ```
-
----
-
-## 🔒 Connected Services & Accounts Status
-
-| Service | Connection Status | Details |
-| :--- | :--- | :--- |
-| **GitHub** | ✅ **Connected & Authorized** | Connected via MCP tool (`github`) as `sharique-ahmad-1`. Full repo creation, commit, push, and PR permissions active. |
-| **Render** | ✅ **Connected & Authorized** | Connected via MCP tool (`render`) to Team Workspace `tea-dasvjbnpn0mc73a9ga4g` (`sharique7463@gmail.com`). Full service creation and deployment permissions active. |
-| **Supabase** | ⚡ **Architecture Ready** | Express server is structured and ready for Supabase client integration. Add your `SUPABASE_URL` and `SUPABASE_ANON_KEY` to `server/.env` to persist tables and auth. |

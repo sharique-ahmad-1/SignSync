@@ -22,13 +22,22 @@ export default {
       },
       animation: {
         'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-        'ripple': 'ripple 1.5s ease-out infinite'
+        'ripple': 'ripple 1.5s ease-out infinite',
+        'aurora': 'aurora 60s linear infinite',
       },
       keyframes: {
         ripple: {
           '0%': { transform: 'scale(0.8)', opacity: '1' },
           '100%': { transform: 'scale(2.2)', opacity: '0' }
-        }
+        },
+        aurora: {
+          from: {
+            backgroundPosition: "50% 50%, 50% 50%",
+          },
+          to: {
+            backgroundPosition: "350% 50%, 350% 50%",
+          },
+        },
       }
     },
   },

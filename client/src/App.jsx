@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Navbar } from './components/Navbar.jsx';
-import { DeafView } from './components/DeafView.jsx';
-import { HearingView } from './components/HearingView.jsx';
-import { ConversationLog } from './components/ConversationLog.jsx';
-import { ConnectionStatusModal } from './components/ConnectionStatusModal.jsx';
+import { AuroraBackground } from './components/ui/aurora-background';
+import { Navbar } from './components/Navbar';
+import { DeafView } from './components/DeafView';
+import { HearingView } from './components/HearingView';
+import { ConversationLog } from './components/ConversationLog';
+import { ConnectionStatusModal } from './components/ConnectionStatusModal';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function App() {
   const [viewMode, setViewMode] = useState('split'); // 'split' | 'deaf' | 'hearing'
@@ -15,17 +17,17 @@ export default function App() {
   const [repeatTrigger, setRepeatTrigger] = useState(0);
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
 
-  // In-memory conversation messages
+  // Conversation history
   const [messages, setMessages] = useState([
     {
       id: 'welcome-1',
       sender: 'hearing',
-      text: 'Welcome to SignSync! Speak or type to see the animated signs below.',
+      text: 'Welcome to SignSync Phase 2! Voice speech will translate to 3D Avatar ISL signs, and hand signs can be formulated into speech via SmolLM2.',
       timestamp: new Date().toISOString()
     }
   ]);
 
-  // Check Express server health periodically
+  // Periodic server health check
   useEffect(() => {
     const checkServer = async () => {
       try {
@@ -69,15 +71,14 @@ export default function App() {
     setLastHearingTranscript(text);
     setIsHearingSpeaking(Boolean(text && text.trim().length > 0));
 
-    // Reset speaking flag after 3 seconds of silence
     if (!isInterim) {
       setTimeout(() => {
         setIsHearingSpeaking(false);
-      }, 3500);
+      }, 4000);
     }
   };
 
-  // Handle Deaf user actions (Confirm Receipt, Repeat, Clarify)
+  // Handle Deaf user actions (Confirm Receipt, Repeat, Clarify, or SmolLM2 formulated speech)
   const handleDeafAction = async (actionObj) => {
     const newMsg = {
       id: `deaf-${Date.now()}`,
@@ -89,12 +90,11 @@ export default function App() {
 
     setMessages(prev => [...prev, newMsg]);
 
-    // If Deaf user clicks "Repeat Request", trigger Avatar repeat
+    // If Deaf user clicks Repeat, trigger Avatar replay
     if (actionObj.action && actionObj.action.toLowerCase().includes('repeat')) {
       setRepeatTrigger(prev => prev + 1);
     }
 
-    // Sync to backend if online
     try {
       await fetch('/api/messages', {
         method: 'POST',
@@ -102,7 +102,7 @@ export default function App() {
         body: JSON.stringify(newMsg)
       });
     } catch (e) {
-      console.warn('Backend sync deferred:', e);
+      // Backend sync deferred
     }
   };
 
@@ -117,7 +117,6 @@ export default function App() {
 
     setMessages(prev => [...prev, newMsg]);
 
-    // Sync to backend
     try {
       await fetch('/api/messages', {
         method: 'POST',
@@ -125,12 +124,12 @@ export default function App() {
         body: JSON.stringify(newMsg)
       });
     } catch (e) {
-      console.warn('Backend sync deferred:', e);
+      // Backend sync deferred
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#0B0F19] text-slate-100 flex flex-col justify-between selection:bg-indigo-500 selection:text-white">
+    <AuroraBackground className="min-h-screen">
       
       {/* Top Navigation */}
       <Navbar
@@ -142,28 +141,42 @@ export default function App() {
         onOpenStatusModal={() => setIsStatusModalOpen(true)}
       />
 
-      {/* Main Split-Screen Workspace */}
-      <main className="flex-1 flex flex-col overflow-hidden max-w-[1600px] w-full mx-auto p-2 sm:p-4 gap-3">
+      {/* Main Split-Screen Workspace with Animated Layout Transitions */}
+      <main className="flex-1 flex flex-col overflow-hidden max-w-[1640px] w-full mx-auto p-2 sm:p-4 gap-3">
         
-        {/* Top Half: Deaf User View (Webcam + MediaPipe 21 Hand Landmarks) */}
+        {/* Top Half: Deaf User View (Webcam + MediaPipe + Glowing Effect + 3D Cards + SmolLM2) */}
         {(viewMode === 'split' || viewMode === 'deaf') && (
-          <div className={`rounded-2xl overflow-hidden border border-slate-800 shadow-xl transition-all duration-300 ${
-            viewMode === 'deaf' ? 'flex-1 h-full' : 'flex-1'
-          }`}>
+          <motion.div 
+            layout
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3 }}
+            className={`rounded-2xl overflow-hidden border border-slate-800/80 shadow-2xl backdrop-blur-md bg-slate-950/60 transition-all duration-300 ${
+              viewMode === 'deaf' ? 'flex-1 h-full' : 'flex-1'
+            }`}
+          >
             <DeafView
               onSendAction={handleDeafAction}
               lastHearingTranscript={lastHearingTranscript}
               isHearingSpeaking={isHearingSpeaking}
               onMediaPipeStatusChange={setMediaPipeReady}
             />
-          </div>
+          </motion.div>
         )}
 
-        {/* Bottom Half: Hearing User View (Speech-to-Text & Mock Avatar System) */}
+        {/* Bottom Half: Hearing User View (Speech-to-Text + TextGenerateEffect + 3D Avatar) */}
         {(viewMode === 'split' || viewMode === 'hearing') && (
-          <div className={`rounded-2xl overflow-hidden border border-slate-800 shadow-xl transition-all duration-300 ${
-            viewMode === 'hearing' ? 'flex-1 h-full' : 'flex-1'
-          }`}>
+          <motion.div 
+            layout
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            transition={{ duration: 0.3 }}
+            className={`rounded-2xl overflow-hidden border border-slate-800/80 shadow-2xl backdrop-blur-md bg-slate-950/60 transition-all duration-300 ${
+              viewMode === 'hearing' ? 'flex-1 h-full' : 'flex-1'
+            }`}
+          >
             <HearingView
               onSpeechTranscribed={handleSpeechTranscribed}
               isListening={isListening}
@@ -171,7 +184,7 @@ export default function App() {
               repeatTrigger={repeatTrigger}
               onSendMessage={handleHearingMessage}
             />
-          </div>
+          </motion.div>
         )}
 
       </main>
@@ -186,6 +199,6 @@ export default function App() {
         serverStatus={serverStatus}
       />
 
-    </div>
+    </AuroraBackground>
   );
 }

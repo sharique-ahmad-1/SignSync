@@ -10,12 +10,18 @@ import {
   EyeOff, 
   Sparkles, 
   Sliders, 
-  Maximize2,
   BellRing,
-  AlertCircle
+  Volume2,
+  Cpu,
+  ArrowRight
 } from 'lucide-react';
+import { GlowingEffect } from './ui/glowing-effect';
+import { CardContainer, CardBody, CardItem } from './ui/3d-card';
+import { LottieDisplay } from './ui/lottie-display';
+import { handTrackerLottie, aiProcessingLottie } from '../lib/lottieData';
+import { formulateGrammarSentence, speakFormulatedSentence, subscribeModelProgress, loadSmolLMModel } from '../lib/smolLM';
+import { cn } from '../lib/utils';
 
-// Hand landmark connections standard in MediaPipe
 const HAND_CONNECTIONS = [
   // Thumb
   [0, 1], [1, 2], [2, 3], [3, 4],
@@ -42,19 +48,35 @@ export function DeafView({
   const landmarkerRef = useRef(null);
   const animFrameIdRef = useRef(null);
 
-  // Component state
+  // Video & Model state
   const [cameraActive, setCameraActive] = useState(false);
   const [modelLoading, setModelLoading] = useState(true);
-  const [modelError, setModelError] = useState(null);
   const [showCanvasOverlay, setShowCanvasOverlay] = useState(true);
   const [mirrorCamera, setMirrorCamera] = useState(true);
   const [simulationMode, setSimulationMode] = useState(false);
   
   // Hand tracking telemetry
   const [detectedGesture, setDetectedGesture] = useState('No Hand in Frame');
+  const [detectedKeyword, setDetectedKeyword] = useState(null);
   const [handCount, setHandCount] = useState(0);
   const [trackingConfidence, setTrackingConfidence] = useState(0);
   const [lastActionSent, setLastActionSent] = useState(null);
+
+  // Task 2: Offline NLP (SmolLM2) Sentence Formulation State
+  const [rawSignTokens, setRawSignTokens] = useState(['Me', 'Hungry', 'Food']);
+  const [formulatedSentence, setFormulatedSentence] = useState('I am hungry and would like some food.');
+  const [isFormulating, setIsFormulating] = useState(false);
+  const [nlpState, setNlpState] = useState({ ready: false, loading: false, progress: 0, status: 'Initializing' });
+
+  // Subscribe to SmolLM2 progress & trigger background load
+  useEffect(() => {
+    const unsub = subscribeModelProgress((state) => {
+      setNlpState(state);
+    });
+    // Trigger non-blocking async load of SmolLM2
+    loadSmolLMModel().catch(() => {});
+    return () => unsub();
+  }, []);
 
   // Initialize MediaPipe Hand Landmarker
   useEffect(() => {
@@ -63,16 +85,12 @@ export function DeafView({
     async function initMediaPipe() {
       try {
         setModelLoading(true);
-        setModelError(null);
-
-        // Load WASM files from CDN
         const vision = await FilesetResolver.forVisionTasks(
           'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
         );
 
         if (!isMounted) return;
 
-        // Initialize HandLandmarker with float16 model
         const handLandmarker = await HandLandmarker.createFromOptions(vision, {
           baseOptions: {
             modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
@@ -86,13 +104,11 @@ export function DeafView({
         });
 
         if (!isMounted) return;
-
         landmarkerRef.current = handLandmarker;
         setModelLoading(false);
         if (onMediaPipeStatusChange) onMediaPipeStatusChange(true);
-        console.log('[MediaPipe] Hand Landmarker initialized successfully');
       } catch (err) {
-        console.warn('[MediaPipe] Failed to load GPU delegate, trying CPU fallback:', err);
+        console.warn('[MediaPipe] GPU initialization notice, trying CPU delegate:', err);
         try {
           const vision = await FilesetResolver.forVisionTasks(
             'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
@@ -113,7 +129,6 @@ export function DeafView({
         } catch (cpuErr) {
           console.error('[MediaPipe] Failed to initialize Hand Landmarker:', cpuErr);
           if (isMounted) {
-            setModelError('MediaPipe model could not load directly. You can enable Simulation Mode to test landmarks.');
             setModelLoading(false);
             if (onMediaPipeStatusChange) onMediaPipeStatusChange(false);
           }
@@ -125,9 +140,7 @@ export function DeafView({
 
     return () => {
       isMounted = false;
-      if (animFrameIdRef.current) {
-        cancelAnimationFrame(animFrameIdRef.current);
-      }
+      if (animFrameIdRef.current) cancelAnimationFrame(animFrameIdRef.current);
     };
   }, [onMediaPipeStatusChange]);
 
@@ -151,8 +164,7 @@ export function DeafView({
         };
       }
     } catch (err) {
-      console.warn('[Camera] Permission denied or camera unavailable:', err);
-      // Fallback: offer simulation mode so user has full working experience
+      console.warn('[Camera] Fallback to simulation mode:', err);
       setSimulationMode(true);
       setCameraActive(true);
     }
@@ -170,25 +182,21 @@ export function DeafView({
     setDetectedGesture('Camera Inactive');
     setHandCount(0);
 
-    // Clear canvas
     if (canvasRef.current) {
       const ctx = canvasRef.current.getContext('2d');
       ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
     }
   };
 
-  // Autostart camera on mount
   useEffect(() => {
     startCamera();
     return () => stopCamera();
   }, []);
 
-  // Simple heuristic gesture classifier from 21 landmarks
+  // Gesture classification from 21 landmarks
   const classifyGesture = (landmarks) => {
-    if (!landmarks || landmarks.length === 0) return 'No Hand';
+    if (!landmarks || landmarks.length === 0) return { gesture: 'No Hand', keyword: null };
 
-    // Tip points: Thumb: 4, Index: 8, Middle: 12, Ring: 16, Pinky: 20
-    // MCP joints: Index: 5, Middle: 9, Ring: 13, Pinky: 17
     const wrist = landmarks[0];
     const indexTip = landmarks[8];
     const indexMcp = landmarks[5];
@@ -199,7 +207,6 @@ export function DeafView({
     const pinkyTip = landmarks[20];
     const pinkyMcp = landmarks[17];
     const thumbTip = landmarks[4];
-    const thumbMcp = landmarks[2];
 
     const isIndexExtended = indexTip.y < indexMcp.y;
     const isMiddleExtended = middleTip.y < middleMcp.y;
@@ -207,76 +214,73 @@ export function DeafView({
     const isPinkyExtended = pinkyTip.y < pinkyMcp.y;
     const isThumbUp = thumbTip.y < wrist.y && thumbTip.y < indexMcp.y;
 
-    // Gesture classifications
     if (isIndexExtended && isMiddleExtended && isRingExtended && isPinkyExtended) {
-      return 'Open Palm / Waving 👋';
+      return { gesture: 'Open Palm / Waving 👋', keyword: 'Hello' };
     }
     if (isIndexExtended && isMiddleExtended && !isRingExtended && !isPinkyExtended) {
-      return 'Victory / Peace ✌️';
+      return { gesture: 'Victory / Two ✌️', keyword: 'Peace' };
     }
     if (isIndexExtended && !isMiddleExtended && !isRingExtended && !isPinkyExtended) {
-      return 'Pointing ☝️';
+      return { gesture: 'Pointing ☝️', keyword: 'Me' };
     }
     if (isThumbUp && !isIndexExtended && !isMiddleExtended && !isRingExtended) {
-      return 'Thumbs Up 👍 (Affirmative)';
+      return { gesture: 'Thumbs Up 👍 (Affirmative)', keyword: 'Yes' };
     }
     if (!isIndexExtended && !isMiddleExtended && !isRingExtended && !isPinkyExtended) {
-      return 'Closed Fist ✊ (Yes / Nod)';
+      return { gesture: 'Closed Fist ✊ (Nod)', keyword: 'Help' };
     }
     if (isThumbUp && isIndexExtended && isPinkyExtended && !isMiddleExtended && !isRingExtended) {
-      return 'I Love You (ASL 🤟)';
+      return { gesture: 'I Love You (ASL 🤟)', keyword: 'Love' };
     }
 
-    return 'Active Hand Signing ✋';
+    return { gesture: 'Active Signing ✋', keyword: null };
   };
 
   // Continuous prediction loop
   const predictLoop = useCallback(() => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
-
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
 
-    // 1. Simulation Mode Animation (if camera permission not granted or user tests simulation)
+    // 1. Simulation Mode
     if (simulationMode || !cameraActive) {
       if (simulationMode) {
         const time = Date.now() / 600;
         const width = canvas.width = 640;
         const height = canvas.height = 360;
-
         ctx.clearRect(0, 0, width, height);
 
-        // Generate synthetic hand landmarks
         const centerX = width * 0.5 + Math.sin(time) * 40;
         const centerY = height * 0.55 + Math.cos(time * 1.5) * 20;
 
         const fakeLandmarks = [
-          { x: centerX / width, y: centerY / height }, // wrist
-          { x: (centerX - 40) / width, y: (centerY - 30) / height }, // thumb mcp
+          { x: centerX / width, y: centerY / height },
+          { x: (centerX - 40) / width, y: (centerY - 30) / height },
           { x: (centerX - 60) / width, y: (centerY - 50) / height },
           { x: (centerX - 75) / width, y: (centerY - 75) / height },
-          { x: (centerX - 90 + Math.sin(time * 3) * 10) / width, y: (centerY - 100) / height }, // thumb tip
-          { x: (centerX - 25) / width, y: (centerY - 70) / height }, // index mcp
+          { x: (centerX - 90 + Math.sin(time * 3) * 10) / width, y: (centerY - 100) / height },
+          { x: (centerX - 25) / width, y: (centerY - 70) / height },
           { x: (centerX - 30) / width, y: (centerY - 110) / height },
           { x: (centerX - 35) / width, y: (centerY - 140) / height },
-          { x: (centerX - 40 + Math.cos(time * 2) * 8) / width, y: (centerY - 170) / height }, // index tip
-          { x: (centerX) / width, y: (centerY - 75) / height }, // middle mcp
+          { x: (centerX - 40 + Math.cos(time * 2) * 8) / width, y: (centerY - 170) / height },
+          { x: (centerX) / width, y: (centerY - 75) / height },
           { x: (centerX) / width, y: (centerY - 120) / height },
           { x: (centerX) / width, y: (centerY - 150) / height },
-          { x: (centerX + Math.sin(time * 2) * 8) / width, y: (centerY - 185) / height }, // middle tip
-          { x: (centerX + 25) / width, y: (centerY - 70) / height }, // ring mcp
+          { x: (centerX + Math.sin(time * 2) * 8) / width, y: (centerY - 185) / height },
+          { x: (centerX + 25) / width, y: (centerY - 70) / height },
           { x: (centerX + 28) / width, y: (centerY - 110) / height },
           { x: (centerX + 30) / width, y: (centerY - 140) / height },
-          { x: (centerX + 32) / width, y: (centerY - 165) / height }, // ring tip
-          { x: (centerX + 50) / width, y: (centerY - 60) / height }, // pinky mcp
+          { x: (centerX + 32) / width, y: (centerY - 165) / height },
+          { x: (centerX + 50) / width, y: (centerY - 60) / height },
           { x: (centerX + 55) / width, y: (centerY - 95) / height },
           { x: (centerX + 60) / width, y: (centerY - 125) / height },
-          { x: (centerX + 65 + Math.sin(time * 3) * 12) / width, y: (centerY - 150) / height } // pinky tip
+          { x: (centerX + 65 + Math.sin(time * 3) * 12) / width, y: (centerY - 150) / height }
         ];
 
         drawHandOnCanvas(ctx, fakeLandmarks, width, height, '#06b6d4', '#10b981');
         setDetectedGesture('Waving / Open Palm (Simulated Demo)');
+        setDetectedKeyword('Hello');
         setHandCount(1);
         setTrackingConfidence(99);
       }
@@ -292,7 +296,6 @@ export function DeafView({
       }
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-
       const startTimeMs = performance.now();
       const results = landmarkerRef.current.detectForVideo(video, startTimeMs);
 
@@ -303,16 +306,14 @@ export function DeafView({
           : 95;
         setTrackingConfidence(avgConfidence);
 
-        // Classify gesture on primary hand
-        const gesture = classifyGesture(results.landmarks[0]);
+        const { gesture, keyword } = classifyGesture(results.landmarks[0]);
         setDetectedGesture(gesture);
+        if (keyword) setDetectedKeyword(keyword);
 
         if (showCanvasOverlay) {
           results.landmarks.forEach((landmarks, index) => {
             const isRight = results.handednesses?.[index]?.[0]?.categoryName === 'Right';
-            const boneColor = isRight ? '#06b6d4' : '#6366f1';
-            const jointColor = isRight ? '#10b981' : '#ec4899';
-            drawHandOnCanvas(ctx, landmarks, canvas.width, canvas.height, boneColor, jointColor);
+            drawHandOnCanvas(ctx, landmarks, canvas.width, canvas.height, isRight ? '#06b6d4' : '#6366f1', isRight ? '#10b981' : '#ec4899');
           });
         }
       } else {
@@ -325,9 +326,7 @@ export function DeafView({
     animFrameIdRef.current = requestAnimationFrame(predictLoop);
   }, [cameraActive, simulationMode, showCanvasOverlay]);
 
-  // Helper to draw connected landmarks with custom neon aesthetics
   const drawHandOnCanvas = (ctx, landmarks, width, height, boneColor, jointColor) => {
-    // 1. Draw connections
     ctx.lineWidth = 3;
     ctx.strokeStyle = boneColor;
     ctx.shadowColor = boneColor;
@@ -344,33 +343,22 @@ export function DeafView({
       }
     }
 
-    // 2. Draw joint points
     for (let i = 0; i < landmarks.length; i++) {
       const p = landmarks[i];
       const x = p.x * width;
       const y = p.y * height;
-
-      ctx.beginPath();
-      // Emphasize fingertips
       const isTip = [4, 8, 12, 16, 20].includes(i);
       const radius = isTip ? 6 : 4;
       
+      ctx.beginPath();
       ctx.arc(x, y, radius, 0, 2 * Math.PI);
       ctx.fillStyle = isTip ? '#ffffff' : jointColor;
       ctx.shadowColor = jointColor;
       ctx.shadowBlur = isTip ? 12 : 6;
       ctx.fill();
-
-      // Fingertip pulse outline
-      if (isTip) {
-        ctx.strokeStyle = jointColor;
-        ctx.lineWidth = 2;
-        ctx.stroke();
-      }
     }
   };
 
-  // Launch prediction loop
   useEffect(() => {
     animFrameIdRef.current = requestAnimationFrame(predictLoop);
     return () => {
@@ -378,8 +366,8 @@ export function DeafView({
     };
   }, [predictLoop]);
 
-  // Handle action buttons (Confirm Receipt, Repeat, Clarify)
-  const handleAction = (actionName, colorScheme) => {
+  // Handle action triggers (Confirm Receipt, Repeat, Clarify)
+  const handleAction = (actionName) => {
     setLastActionSent({ action: actionName, time: new Date().toLocaleTimeString() });
     if (onSendAction) {
       onSendAction({
@@ -395,13 +383,40 @@ export function DeafView({
     }, 3000);
   };
 
+  // Add detected gesture to raw sign tokens
+  const addTokenToSequence = (token) => {
+    if (!token) return;
+    setRawSignTokens(prev => [...prev.slice(-4), token]);
+  };
+
+  // Run SmolLM2 / NLP grammar formulation
+  const handleFormulateSentence = async () => {
+    setIsFormulating(true);
+    try {
+      const sentence = await formulateGrammarSentence(rawSignTokens);
+      setFormulatedSentence(sentence);
+    } finally {
+      setIsFormulating(false);
+    }
+  };
+
+  // Speak the formulated sentence out loud
+  const handleSpeakAloud = () => {
+    speakFormulatedSentence(formulatedSentence);
+    if (onSendAction) {
+      onSendAction({
+        type: 'formulated_speech',
+        sender: 'deaf',
+        text: `[Deaf User Spoke]: "${formulatedSentence}"`
+      });
+    }
+  };
+
   return (
-    <div className={`relative flex flex-col h-full bg-slate-950 border-b border-slate-800 transition-all duration-300 ${
-      isHearingSpeaking ? 'flash-active ring-2 ring-emerald-500/40' : ''
-    }`}>
+    <div className="relative flex flex-col h-full bg-slate-950 border-b border-slate-800 transition-all duration-300">
       
-      {/* Header Bar for Deaf User View */}
-      <div className="flex items-center justify-between px-4 py-2.5 bg-slate-900/80 border-b border-slate-800/80">
+      {/* Top Header */}
+      <div className="flex items-center justify-between px-4 py-2.5 bg-slate-900/90 border-b border-slate-800">
         <div className="flex items-center gap-2">
           <div className="h-2.5 w-2.5 rounded-full bg-cyan-400 animate-pulse" />
           <span className="text-xs font-semibold uppercase tracking-wider text-cyan-400 font-heading">
@@ -409,7 +424,7 @@ export function DeafView({
           </span>
           {simulationMode && (
             <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
-              Demo Simulation Mode
+              Demo Simulation Active
             </span>
           )}
         </div>
@@ -418,11 +433,12 @@ export function DeafView({
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowCanvasOverlay(!showCanvasOverlay)}
-            className={`p-1.5 rounded-lg text-xs flex items-center gap-1.5 border transition-all ${
+            className={cn(
+              "p-1.5 rounded-xl text-xs flex items-center gap-1.5 border transition-all",
               showCanvasOverlay 
                 ? 'bg-cyan-950/60 border-cyan-500/40 text-cyan-300' 
                 : 'bg-slate-800/60 border-slate-700 text-slate-400'
-            }`}
+            )}
             title="Toggle Landmark Canvas Overlay"
           >
             {showCanvasOverlay ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
@@ -431,11 +447,12 @@ export function DeafView({
 
           <button
             onClick={() => setMirrorCamera(!mirrorCamera)}
-            className={`p-1.5 rounded-lg text-xs flex items-center gap-1.5 border transition-all ${
+            className={cn(
+              "p-1.5 rounded-xl text-xs flex items-center gap-1.5 border transition-all",
               mirrorCamera 
                 ? 'bg-indigo-950/60 border-indigo-500/40 text-indigo-300' 
                 : 'bg-slate-800/60 border-slate-700 text-slate-400'
-            }`}
+            )}
             title="Toggle Mirror Camera"
           >
             <Sliders className="h-3.5 w-3.5" />
@@ -444,11 +461,12 @@ export function DeafView({
 
           <button
             onClick={cameraActive ? stopCamera : startCamera}
-            className={`p-1.5 rounded-lg text-xs flex items-center gap-1.5 border transition-all ${
+            className={cn(
+              "p-1.5 rounded-xl text-xs flex items-center gap-1.5 border transition-all",
               cameraActive 
                 ? 'bg-rose-950/60 border-rose-500/40 text-rose-300 hover:bg-rose-900/60' 
                 : 'bg-emerald-950/60 border-emerald-500/40 text-emerald-300 hover:bg-emerald-900/60'
-            }`}
+            )}
           >
             {cameraActive ? <CameraOff className="h-3.5 w-3.5" /> : <Camera className="h-3.5 w-3.5" />}
             <span className="hidden sm:inline">{cameraActive ? 'Pause' : 'Start'} Camera</span>
@@ -456,12 +474,12 @@ export function DeafView({
         </div>
       </div>
 
-      {/* Hearing User Voice Alert Banner (Accessible visual alert for Deaf user) */}
+      {/* Hearing User Voice Alert Banner */}
       {isHearingSpeaking && (
         <div className="bg-emerald-500/20 border-b border-emerald-500/40 px-4 py-1.5 flex items-center justify-between text-xs text-emerald-300 animate-pulse">
           <div className="flex items-center gap-2">
             <BellRing className="h-4 w-4 text-emerald-400 animate-bounce" />
-            <span className="font-semibold">Hearing User is speaking now:</span>
+            <span className="font-semibold">Hearing User Speaking:</span>
             <span className="italic text-white font-medium truncate max-w-md">
               "{lastHearingTranscript || 'Listening...'}"
             </span>
@@ -472,165 +490,242 @@ export function DeafView({
         </div>
       )}
 
-      {/* Main Video & Canvas Feed Area */}
-      <div className="relative flex-1 bg-black flex items-center justify-center overflow-hidden min-h-[260px] max-h-[380px] lg:max-h-[440px]">
-        
-        {/* Model loading overlay */}
-        {modelLoading && (
-          <div className="absolute inset-0 z-30 bg-slate-950/90 flex flex-col items-center justify-center gap-3">
-            <div className="h-10 w-10 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin" />
-            <p className="text-sm font-medium text-cyan-200">
-              Loading Google MediaPipe Hand Landmarker...
-            </p>
-            <p className="text-xs text-slate-400">
-              Preparing 21 3D point skeletal tracking engine
-            </p>
-          </div>
-        )}
-
-        {/* Camera inactive overlay */}
-        {!cameraActive && !simulationMode && (
-          <div className="absolute inset-0 z-20 bg-slate-900/90 flex flex-col items-center justify-center gap-4 p-6 text-center">
-            <div className="h-16 w-16 rounded-full bg-slate-800 flex items-center justify-center text-slate-400">
-              <CameraOff className="h-8 w-8" />
-            </div>
-            <div>
-              <h3 className="text-base font-semibold text-slate-200">Camera Feed Paused</h3>
-              <p className="text-xs text-slate-400 max-w-sm mt-1">
-                Enable webcam access to track hand gestures in real-time, or test in simulation mode.
+      {/* Aceternity UI: Glowing Effect wrapping the video container */}
+      <div className="p-3 flex-1 flex flex-col justify-center">
+        <GlowingEffect
+          active={isHearingSpeaking}
+          glowColor="rgba(16, 185, 129, 0.8)"
+          secondaryColor="rgba(6, 182, 212, 0.6)"
+          className="w-full flex-1 flex items-center justify-center bg-black min-h-[260px] max-h-[380px] lg:max-h-[440px]"
+        >
+          {/* Lottie Model Loading Overlay */}
+          {modelLoading && (
+            <div className="absolute inset-0 z-30 bg-slate-950/90 flex flex-col items-center justify-center gap-3">
+              <LottieDisplay animationData={handTrackerLottie} className="w-24 h-24" />
+              <p className="text-sm font-medium text-cyan-200">
+                Loading Google MediaPipe Hand Landmarker...
+              </p>
+              <p className="text-xs text-slate-400">
+                Preparing 21 3D point skeletal tracking engine
               </p>
             </div>
-            <div className="flex gap-2">
-              <button
-                onClick={startCamera}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-600/30 transition-all"
-              >
-                Enable Camera
-              </button>
-              <button
-                onClick={() => { setSimulationMode(true); setCameraActive(true); }}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30 rounded-xl text-xs font-semibold transition-all"
-              >
-                Run Simulation Demo
-              </button>
-            </div>
-          </div>
-        )}
+          )}
 
-        {/* Video Element for Webcam Feed */}
-        <video
-          ref={videoRef}
-          playsInline
-          muted
-          autoPlay
-          className={`w-full h-full object-contain ${mirrorCamera ? 'scale-x-[-1]' : ''}`}
-        />
-
-        {/* Canvas Overlay for 21 Hand Landmarks */}
-        <canvas
-          ref={canvasRef}
-          className={`absolute inset-0 w-full h-full object-contain pointer-events-none z-10 ${
-            mirrorCamera ? 'scale-x-[-1]' : ''
-          }`}
-        />
-
-        {/* HUD Overlay Badges (Top-Left: Gesture & Confidence) */}
-        <div className="absolute top-3 left-3 z-20 flex flex-col gap-1.5 pointer-events-none">
-          {/* Active Gesture Tag */}
-          <div className="flex items-center gap-2 bg-slate-950/80 backdrop-blur-md border border-cyan-500/40 px-3 py-1.5 rounded-xl shadow-lg">
-            <Sparkles className="h-4 w-4 text-cyan-400 animate-spin" style={{ animationDuration: '4s' }} />
-            <div>
-              <div className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
-                Detected Sign Gesture
+          {/* Camera inactive overlay */}
+          {!cameraActive && !simulationMode && (
+            <div className="absolute inset-0 z-20 bg-slate-900/90 flex flex-col items-center justify-center gap-4 p-6 text-center">
+              <div className="h-16 w-16 rounded-full bg-slate-800 flex items-center justify-center text-slate-400">
+                <CameraOff className="h-8 w-8" />
               </div>
-              <div className="text-xs font-bold text-white tracking-wide">
-                {detectedGesture}
+              <div>
+                <h3 className="text-base font-semibold text-slate-200">Camera Feed Paused</h3>
+                <p className="text-xs text-slate-400 max-w-sm mt-1">
+                  Enable webcam access to track hand gestures in real-time, or test in simulation mode.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={startCamera}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-600/30 transition-all"
+                >
+                  Enable Camera
+                </button>
+                <button
+                  onClick={() => { setSimulationMode(true); setCameraActive(true); }}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30 rounded-xl text-xs font-semibold transition-all"
+                >
+                  Run Simulation Demo
+                </button>
               </div>
             </div>
+          )}
+
+          {/* Video Feed */}
+          <video
+            ref={videoRef}
+            playsInline
+            muted
+            autoPlay
+            className={cn("w-full h-full object-contain", mirrorCamera && "scale-x-[-1]")}
+          />
+
+          {/* Canvas Overlay for Hand Landmarks */}
+          <canvas
+            ref={canvasRef}
+            className={cn("absolute inset-0 w-full h-full object-contain pointer-events-none z-10", mirrorCamera && "scale-x-[-1]")}
+          />
+
+          {/* HUD Overlay Badges */}
+          <div className="absolute top-3 left-3 z-20 flex flex-col gap-1.5 pointer-events-none">
+            <div className="flex items-center gap-2 bg-slate-950/80 backdrop-blur-md border border-cyan-500/40 px-3 py-1.5 rounded-xl shadow-lg">
+              <Sparkles className="h-4 w-4 text-cyan-400 animate-spin" style={{ animationDuration: '4s' }} />
+              <div>
+                <div className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
+                  Detected Sign Gesture
+                </div>
+                <div className="text-xs font-bold text-white tracking-wide">
+                  {detectedGesture}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 bg-slate-950/70 backdrop-blur-md border border-slate-800 px-2.5 py-1 rounded-lg text-[10px] text-slate-300">
+              <span>Hands: <strong className="text-cyan-400">{handCount}</strong></span>
+              <span>•</span>
+              <span>Confidence: <strong className="text-emerald-400">{trackingConfidence}%</strong></span>
+            </div>
           </div>
 
-          {/* Telemetry info */}
-          <div className="flex items-center gap-2 bg-slate-950/70 backdrop-blur-md border border-slate-800 px-2.5 py-1 rounded-lg text-[10px] text-slate-300">
-            <span>Hands: <strong className="text-cyan-400">{handCount}</strong></span>
-            <span>•</span>
-            <span>Confidence: <strong className="text-emerald-400">{trackingConfidence}%</strong></span>
-            <span>•</span>
-            <span>Overlay: <strong className={showCanvasOverlay ? 'text-cyan-400' : 'text-slate-500'}>
-              {showCanvasOverlay ? 'Active' : 'Off'}
-            </strong></span>
+          {/* Action notification */}
+          {lastActionSent && (
+            <div className="absolute bottom-4 right-4 z-20 bg-emerald-600/90 backdrop-blur-md text-white px-4 py-2 rounded-xl shadow-xl flex items-center gap-2 border border-emerald-400/50 animate-bounce">
+              <CheckCircle2 className="h-4 w-4" />
+              <span className="text-xs font-semibold">Sent: {lastActionSent.action}</span>
+            </div>
+          )}
+        </GlowingEffect>
+      </div>
+
+      {/* Task 2: Offline NLP (SmolLM2) Sentence Formulation Bar */}
+      <div className="mx-3 mb-2 p-2.5 bg-slate-900/90 border border-indigo-500/30 rounded-2xl flex flex-col lg:flex-row items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5 w-full lg:w-auto">
+          <div className="p-2 bg-indigo-500/10 rounded-xl border border-indigo-500/20 text-indigo-400 shrink-0">
+            <Cpu className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-indigo-200">
+                SmolLM2 Offline NLP Formulation:
+              </span>
+              <span className="text-[10px] px-2 py-0.2 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                {nlpState.ready ? 'Model Cached' : nlpState.status}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+              <span className="text-[11px] text-slate-400">Tokens:</span>
+              {rawSignTokens.map((tok, idx) => (
+                <span key={idx} className="px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700 text-xs font-mono text-cyan-300">
+                  {tok}
+                </span>
+              ))}
+              {detectedKeyword && (
+                <button
+                  onClick={() => addTokenToSequence(detectedKeyword)}
+                  className="px-2 py-0.5 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-medium"
+                >
+                  + Add "{detectedKeyword}"
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Notification when an action button is clicked */}
-        {lastActionSent && (
-          <div className="absolute bottom-4 right-4 z-20 bg-emerald-600/90 backdrop-blur-md text-white px-4 py-2 rounded-xl shadow-xl flex items-center gap-2 border border-emerald-400/50 animate-bounce">
-            <CheckCircle2 className="h-4 w-4" />
-            <span className="text-xs font-semibold">Sent: {lastActionSent.action}</span>
+        {/* Formulated Sentence & Vocalize Trigger */}
+        <div className="flex items-center gap-2 w-full lg:w-auto justify-end">
+          <div className="text-right">
+            <div className="text-xs font-semibold text-white bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
+              "{formulatedSentence}"
+            </div>
           </div>
-        )}
+          
+          <button
+            onClick={handleFormulateSentence}
+            disabled={isFormulating}
+            className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-indigo-500/30 text-xs font-medium flex items-center gap-1 transition-all"
+            title="Re-run SmolLM2 sentence reconstruction"
+          >
+            {isFormulating ? <LottieDisplay animationData={aiProcessingLottie} className="w-4 h-4" /> : <Sparkles className="h-3.5 w-3.5" />}
+            <span>{isFormulating ? 'Processing...' : 'Formulate'}</span>
+          </button>
 
+          <button
+            onClick={handleSpeakAloud}
+            className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white text-xs font-bold shadow-md shadow-indigo-600/30 flex items-center gap-1.5 transition-all transform active:scale-95"
+            title="Vocalize this formulated sentence to the Hearing User"
+          >
+            <Volume2 className="h-3.5 w-3.5" />
+            <span>Speak Aloud</span>
+          </button>
+        </div>
       </div>
 
-      {/* Accessible Action Buttons Area (As specifically requested by user) */}
+      {/* Aceternity UI: 3D Card Effect wrapping Action Buttons (Confirm Receipt, Repeat, Clarify) */}
       <div className="p-3 bg-slate-900 border-t border-slate-800">
         <div className="flex flex-wrap items-center justify-between gap-3">
           
           <div className="text-xs text-slate-400 flex items-center gap-1.5">
-            <span className="font-semibold text-slate-300">Deaf User Quick Actions:</span>
+            <span className="font-semibold text-slate-300">Deaf User 3D Action Triggers:</span>
           </div>
 
-          {/* Core Action Buttons: Confirm Receipt, Repeat, Clarify */}
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-3 flex-wrap">
             
-            {/* 1. Confirm Receipt */}
-            <button
-              onClick={() => handleAction('Confirm Receipt', 'emerald')}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-medium text-xs shadow-md shadow-emerald-900/30 border border-emerald-400/30 transition-all transform active:scale-95"
-            >
-              <CheckCircle2 className="h-4 w-4" />
-              <span>Confirm Receipt</span>
-            </button>
+            {/* 1. Confirm Receipt (3D Card) */}
+            <CardContainer containerClassName="p-0" className="p-0">
+              <CardBody className="p-0">
+                <CardItem translateZ={25}>
+                  <button
+                    onClick={() => handleAction('Confirm Receipt')}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-medium text-xs shadow-lg shadow-emerald-900/40 border border-emerald-400/40 transition-all transform active:scale-95"
+                  >
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span>Confirm Receipt</span>
+                  </button>
+                </CardItem>
+              </CardBody>
+            </CardContainer>
 
-            {/* 2. Repeat */}
-            <button
-              onClick={() => handleAction('Repeat Request', 'indigo')}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-medium text-xs shadow-md shadow-indigo-900/30 border border-indigo-400/30 transition-all transform active:scale-95"
-            >
-              <RefreshCw className="h-4 w-4" />
-              <span>Repeat</span>
-            </button>
+            {/* 2. Repeat (3D Card) */}
+            <CardContainer containerClassName="p-0" className="p-0">
+              <CardBody className="p-0">
+                <CardItem translateZ={25}>
+                  <button
+                    onClick={() => handleAction('Repeat Request')}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-medium text-xs shadow-lg shadow-indigo-900/40 border border-indigo-400/40 transition-all transform active:scale-95"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    <span>Repeat</span>
+                  </button>
+                </CardItem>
+              </CardBody>
+            </CardContainer>
 
-            {/* 3. Clarify */}
-            <button
-              onClick={() => handleAction('Clarify Request', 'amber')}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-medium text-xs shadow-md shadow-amber-900/30 border border-amber-400/30 transition-all transform active:scale-95"
-            >
-              <HelpCircle className="h-4 w-4" />
-              <span>Clarify</span>
-            </button>
+            {/* 3. Clarify (3D Card) */}
+            <CardContainer containerClassName="p-0" className="p-0">
+              <CardBody className="p-0">
+                <CardItem translateZ={25}>
+                  <button
+                    onClick={() => handleAction('Clarify Request')}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-medium text-xs shadow-lg shadow-amber-900/40 border border-amber-400/40 transition-all transform active:scale-95"
+                  >
+                    <HelpCircle className="h-4 w-4" />
+                    <span>Clarify</span>
+                  </button>
+                </CardItem>
+              </CardBody>
+            </CardContainer>
 
           </div>
 
           {/* Quick Sign Shortcut Badges */}
           <div className="hidden lg:flex items-center gap-1.5 text-xs text-slate-400">
-            <span className="text-[11px] text-slate-500">Quick Signs:</span>
+            <span className="text-[11px] text-slate-500">Quick Tokens:</span>
             <button 
-              onClick={() => handleAction('Sign: Hello 👋', 'cyan')}
+              onClick={() => addTokenToSequence('Hello')}
               className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] transition-colors"
             >
-              Hello 👋
+              + Hello 👋
             </button>
             <button 
-              onClick={() => handleAction('Sign: Thank You 🙏', 'cyan')}
+              onClick={() => addTokenToSequence('Water')}
               className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] transition-colors"
             >
-              Thank You 🙏
+              + Water 💧
             </button>
             <button 
-              onClick={() => handleAction('Sign: Yes 👍', 'cyan')}
+              onClick={() => addTokenToSequence('Help')}
               className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] transition-colors"
             >
-              Yes 👍
+              + Help 🆘
             </button>
           </div>
 

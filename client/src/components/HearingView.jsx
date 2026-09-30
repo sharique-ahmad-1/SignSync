@@ -8,12 +8,13 @@ import {
   Check, 
   Volume2, 
   Radio, 
-  MessageSquare,
-  AlertCircle,
-  HelpCircle,
-  RefreshCw
+  AlertCircle
 } from 'lucide-react';
-import { MockAvatar } from './MockAvatar.jsx';
+import { MockAvatar } from './MockAvatar';
+import { TextGenerateEffect } from './ui/text-generate-effect';
+import { LottieDisplay } from './ui/lottie-display';
+import { radarListeningLottie } from '../lib/lottieData';
+import { cn } from '../lib/utils';
 
 export function HearingView({ 
   onSpeechTranscribed, 
@@ -76,7 +77,6 @@ export function HearingView({
 
       setInterimText(currentInterim);
       if (currentInterim && onSpeechTranscribed) {
-        // Also inform the parent for instant visual alert
         onSpeechTranscribed(currentInterim, true);
       }
     };
@@ -84,7 +84,7 @@ export function HearingView({
     recognition.onerror = (event) => {
       console.error('[Web Speech API] Recognition error:', event.error);
       if (event.error === 'not-allowed') {
-        setRecognitionError('Microphone access blocked. Please allow mic permissions in your browser or type text manually.');
+        setRecognitionError('Microphone access blocked. Please enable microphone permissions in your browser or type text manually.');
       } else if (event.error !== 'no-speech') {
         setRecognitionError(`Speech recognition notice: ${event.error}`);
       }
@@ -92,7 +92,6 @@ export function HearingView({
     };
 
     recognition.onend = () => {
-      // Auto-restart if user still has listening active
       if (isListening) {
         try {
           recognition.start();
@@ -113,7 +112,6 @@ export function HearingView({
     };
   }, [setIsListening, onSpeechTranscribed]);
 
-  // Toggle listening
   const toggleListening = () => {
     if (!speechSupported) {
       setRecognitionError('SpeechRecognition not supported in this browser. Please use manual input.');
@@ -136,7 +134,6 @@ export function HearingView({
     }
   };
 
-  // Submit text (speech or manual) to conversation
   const handleSend = (textToSend) => {
     const content = textToSend || manualText;
     if (!content.trim()) return;
@@ -149,7 +146,6 @@ export function HearingView({
       });
     }
 
-    // Set as active transcript to trigger avatar
     setTranscript(content.trim());
     if (onSpeechTranscribed) {
       onSpeechTranscribed(content.trim());
@@ -176,7 +172,7 @@ export function HearingView({
   return (
     <div className="flex flex-col h-full bg-slate-950 p-4 transition-colors">
       
-      {/* Hearing User Top Bar */}
+      {/* Top Bar */}
       <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-800">
         <div className="flex items-center gap-2">
           <div className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
@@ -185,22 +181,25 @@ export function HearingView({
           </span>
         </div>
 
-        {/* Start / Stop Listening Button */}
+        {/* Start / Stop Listening Button with Lottie Radar Indicator */}
         <div className="flex items-center gap-2">
+          {isListening && (
+            <div className="w-8 h-8 flex items-center justify-center">
+              <LottieDisplay animationData={radarListeningLottie} className="w-8 h-8" />
+            </div>
+          )}
+
           <button
             onClick={toggleListening}
-            className={`relative flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-lg transform active:scale-95 ${
+            className={cn(
+              "relative flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-lg transform active:scale-95",
               isListening
                 ? 'bg-gradient-to-r from-rose-600 to-red-600 text-white shadow-rose-900/40 ring-2 ring-rose-400/50'
                 : 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-500 hover:to-teal-500 shadow-emerald-900/40'
-            }`}
+            )}
           >
             {isListening ? (
               <>
-                <span className="relative flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-300 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-white" />
-                </span>
                 <MicOff className="h-4 w-4" />
                 <span>Stop Listening</span>
               </>
@@ -214,19 +213,18 @@ export function HearingView({
         </div>
       </div>
 
-      {/* Main Grid: Split between Speech Transcript Display & Mock Avatar */}
+      {/* Main Grid */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 min-h-[300px]">
         
-        {/* Left Col: Live Speech Transcription & Input (5 cols) */}
+        {/* Left Column: Live Speech Transcription with Aceternity TextGenerateEffect */}
         <div className="lg:col-span-5 flex flex-col gap-3">
           
-          {/* Transcript Display Box */}
           <div className="flex-1 flex flex-col bg-slate-900/60 rounded-2xl border border-slate-800 p-3.5 relative overflow-hidden min-h-[160px]">
             
             <div className="flex items-center justify-between pb-2 border-b border-slate-800/80 text-xs">
               <span className="text-slate-400 font-medium flex items-center gap-1.5">
                 <Volume2 className="h-3.5 w-3.5 text-indigo-400" />
-                Live Transcribed Speech
+                Real-Time Speech Transcription
               </span>
 
               <div className="flex items-center gap-1">
@@ -251,44 +249,48 @@ export function HearingView({
               </div>
             </div>
 
-            {/* Transcript text content */}
+            {/* Transcript text rendered with Aceternity TextGenerateEffect */}
             <div className="flex-1 py-3 overflow-y-auto text-sm">
               {transcript || interimText ? (
-                <div className="space-y-1">
-                  <span className="text-slate-100 font-medium leading-relaxed">
-                    {transcript}
-                  </span>
+                <div className="space-y-2">
+                  {transcript && (
+                    <TextGenerateEffect
+                      words={transcript}
+                      className="text-slate-100 text-sm font-medium leading-relaxed"
+                    />
+                  )}
                   {interimText && (
-                    <span className="text-indigo-400 italic font-normal ml-1 animate-pulse">
+                    <span className="text-indigo-400 italic font-normal inline-block animate-pulse">
                       {interimText}...
                     </span>
                   )}
                 </div>
               ) : (
                 <div className="h-full flex flex-col items-center justify-center text-center p-4 text-slate-500">
-                  <Radio className={`h-8 w-8 mb-2 ${isListening ? 'text-rose-400 animate-pulse' : 'text-slate-600'}`} />
+                  <Radio className={cn("h-8 w-8 mb-2", isListening ? 'text-rose-400 animate-pulse' : 'text-slate-600')} />
                   <p className="text-xs">
                     {isListening 
-                      ? 'Listening to speech... say "Hello", "Help", or "Thank you"' 
+                      ? 'Listening to voice... speak "Hello, can you help me?"' 
                       : 'Click "Start Listening" or type a message below'}
                   </p>
                 </div>
               )}
             </div>
 
-            {/* Listening Waveform Bar */}
+            {/* Listening Waveform Bar with Radar Lottie */}
             {isListening && (
-              <div className="flex items-center justify-center gap-1 py-1.5 bg-rose-950/30 rounded-lg border border-rose-500/20">
-                <div className="h-3 w-1 bg-rose-500 animate-pulse rounded-full" />
-                <div className="h-5 w-1 bg-rose-400 animate-pulse rounded-full" style={{ animationDelay: '0.1s' }} />
-                <div className="h-2 w-1 bg-rose-500 animate-pulse rounded-full" style={{ animationDelay: '0.2s' }} />
-                <div className="h-6 w-1 bg-rose-400 animate-pulse rounded-full" style={{ animationDelay: '0.3s' }} />
-                <div className="h-3 w-1 bg-rose-500 animate-pulse rounded-full" style={{ animationDelay: '0.15s' }} />
-                <span className="text-[10px] text-rose-300 font-semibold ml-2">Audio Active</span>
+              <div className="flex items-center justify-between px-3 py-1 bg-rose-950/30 rounded-xl border border-rose-500/20">
+                <div className="flex items-center gap-1.5">
+                  <div className="h-3 w-1 bg-rose-500 animate-pulse rounded-full" />
+                  <div className="h-5 w-1 bg-rose-400 animate-pulse rounded-full" style={{ animationDelay: '0.1s' }} />
+                  <div className="h-2 w-1 bg-rose-500 animate-pulse rounded-full" style={{ animationDelay: '0.2s' }} />
+                  <div className="h-6 w-1 bg-rose-400 animate-pulse rounded-full" style={{ animationDelay: '0.3s' }} />
+                  <span className="text-[10px] text-rose-300 font-semibold ml-1">Live Audio Stream</span>
+                </div>
+                <LottieDisplay animationData={radarListeningLottie} className="w-5 h-5" />
               </div>
             )}
 
-            {/* Error badge */}
             {recognitionError && (
               <div className="mt-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-300 flex items-start gap-1.5">
                 <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
@@ -298,7 +300,7 @@ export function HearingView({
 
           </div>
 
-          {/* Manual Input Fallback & Quick Phrases */}
+          {/* Manual Input Fallback */}
           <form 
             onSubmit={(e) => { e.preventDefault(); handleSend(); }}
             className="flex items-center gap-2"
@@ -307,7 +309,7 @@ export function HearingView({
               type="text"
               value={manualText}
               onChange={(e) => setManualText(e.target.value)}
-              placeholder="Or type here (e.g. 'Hello, do you need help?')..."
+              placeholder="Or type here (e.g. 'Hello, please help me with water')..."
               className="flex-1 bg-slate-900 border border-slate-800 focus:border-indigo-500 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none transition-colors"
             />
             <button
@@ -322,7 +324,7 @@ export function HearingView({
 
         </div>
 
-        {/* Right Col: Mock Avatar Sign Language Display (7 cols) */}
+        {/* Right Column: Upgraded Mock Avatar with Three.js 3D WebGL Rig & Video Mode */}
         <div className="lg:col-span-7">
           <MockAvatar
             transcribedText={transcript || interimText}
