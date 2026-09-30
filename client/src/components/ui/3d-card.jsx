@@ -7,7 +7,8 @@ const MouseEnterContext = createContext([false, () => {}]);
 export const CardContainer = ({
   children,
   className,
-  containerClassName
+  containerClassName,
+  onClick
 }) => {
   const containerRef = useRef(null);
   const [isMouseEntered, setIsMouseEntered] = useState(false);
@@ -34,7 +35,8 @@ export const CardContainer = ({
   return (
     <MouseEnterContext.Provider value={[isMouseEntered, setIsMouseEntered]}>
       <div
-        className={cn("flex items-center justify-center [perspective:1000px]", containerClassName)}
+        onClick={onClick}
+        className={cn("flex items-center justify-center [perspective:1000px] cursor-pointer", containerClassName)}
       >
         <div
           ref={containerRef}
@@ -55,12 +57,14 @@ export const CardContainer = ({
 
 export const CardBody = ({
   children,
-  className
+  className,
+  onClick
 }) => {
   return (
     <div
+      onClick={onClick}
       className={cn(
-        "[transform-style:preserve-3d] [&>*]:[transform-style:preserve-3d]",
+        "[transform-style:preserve-3d] [&>*]:[transform-style:preserve-3d] pointer-events-auto",
         className
       )}
     >
@@ -79,6 +83,7 @@ export const CardItem = ({
   rotateX = 0,
   rotateY = 0,
   rotateZ = 0,
+  onClick,
   ...rest
 }) => {
   const ref = useRef(null);
@@ -100,7 +105,8 @@ export const CardItem = ({
   return (
     <Tag
       ref={ref}
-      className={cn("w-fit transition duration-200 ease-linear", className)}
+      onClick={onClick}
+      className={cn("w-fit transition duration-200 ease-linear pointer-events-auto select-none", className)}
       {...rest}
     >
       {children}

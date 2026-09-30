@@ -13,7 +13,8 @@ import {
   BellRing,
   Volume2,
   Cpu,
-  ArrowRight
+  AlertTriangle,
+  Play
 } from 'lucide-react';
 import { GlowingEffect } from './ui/glowing-effect';
 import { CardContainer, CardBody, CardItem } from './ui/3d-card';
@@ -47,9 +48,12 @@ export function DeafView({
   const canvasRef = useRef(null);
   const landmarkerRef = useRef(null);
   const animFrameIdRef = useRef(null);
+  const mediaStreamRef = useRef(null);
 
   // Video & Model state
   const [cameraActive, setCameraActive] = useState(false);
+  const [cameraError, setCameraError] = useState(null);
+  const [isStartingCamera, setIsStartingCamera] = useState(false);
   const [modelLoading, setModelLoading] = useState(true);
   const [showCanvasOverlay, setShowCanvasOverlay] = useState(true);
   const [mirrorCamera, setMirrorCamera] = useState(true);
@@ -73,7 +77,6 @@ export function DeafView({
     const unsub = subscribeModelProgress((state) => {
       setNlpState(state);
     });
-    // Trigger non-blocking async load of SmolLM2
     loadSmolLMModel().catch(() => {});
     return () => unsub();
   }, []);
@@ -144,37 +147,70 @@ export function DeafView({
     };
   }, [onMediaPipeStatusChange]);
 
-  // Start Camera
+  // Robust Camera Start function (Fixes Task 1: Camera Permissions)
   const startCamera = async () => {
+    setIsStartingCamera(true);
+    setCameraError(null);
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          facingMode: 'user'
-        },
-        audio: false
-      });
+      let stream = null;
+      try {
+        // First try standard high-definition user-facing camera
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 1280, max: 1920 },
+            height: { ideal: 720, max: 1080 },
+            facingMode: 'user'
+          },
+          audio: false
+        });
+      } catch (hdError) {
+        console.log('[Camera] HD constraints failed, falling back to basic video constraint:', hdError);
+        // Fallback to basic constraint
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false
+        });
+      }
+
+      mediaStreamRef.current = stream;
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.onloadedmetadata = () => {
-          videoRef.current.play();
-          setCameraActive(true);
-        };
+        videoRef.current.setAttribute('playsinline', 'true');
+        videoRef.current.muted = true;
+        
+        // Wait for video to begin playing
+        await videoRef.current.play().catch(playErr => {
+          console.log('[Camera] Autoplay promise handled:', playErr);
+        });
+
+        setCameraActive(true);
+        setSimulationMode(false);
+        setCameraError(null);
+        console.log('[Camera] Webcam started and rendering successfully!');
       }
     } catch (err) {
-      console.warn('[Camera] Fallback to simulation mode:', err);
-      setSimulationMode(true);
-      setCameraActive(true);
+      console.warn('[Camera] getUserMedia failed or permission denied:', err);
+      const isDenied = err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError';
+      setCameraError(
+        isDenied 
+          ? 'Camera permission denied. Please click the camera icon in your browser address bar to allow access, or run Simulation Demo.' 
+          : `Camera error: ${err.message || err.name}`
+      );
+      setCameraActive(false);
+    } finally {
+      setIsStartingCamera(false);
     }
   };
 
-  // Stop Camera
+  // Stop Camera cleanly
   const stopCamera = () => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      const tracks = videoRef.current.srcObject.getTracks();
-      tracks.forEach(track => track.stop());
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      mediaStreamRef.current = null;
+    }
+    if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
     setCameraActive(false);
@@ -186,8 +222,10 @@ export function DeafView({
       const ctx = canvasRef.current.getContext('2d');
       ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
     }
+    console.log('[Camera] Webcam stopped.');
   };
 
+  // Autostart camera on mount with graceful fallback
   useEffect(() => {
     startCamera();
     return () => stopCamera();
@@ -243,7 +281,7 @@ export function DeafView({
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
 
-    // 1. Simulation Mode
+    // 1. Simulation Mode Loop
     if (simulationMode || !cameraActive) {
       if (simulationMode) {
         const time = Date.now() / 600;
@@ -366,9 +404,12 @@ export function DeafView({
     };
   }, [predictLoop]);
 
-  // Handle action triggers (Confirm Receipt, Repeat, Clarify)
+  // Handle action triggers (Confirm Receipt, Repeat, Clarify) - Fixes Task 1 Button Wiring
   const handleAction = (actionName) => {
+    console.log(`[SignSync DeafView] Action button triggered: "${actionName}" at ${new Date().toLocaleTimeString()}`);
+    
     setLastActionSent({ action: actionName, time: new Date().toLocaleTimeString() });
+    
     if (onSendAction) {
       onSendAction({
         type: 'action',
@@ -380,42 +421,57 @@ export function DeafView({
 
     setTimeout(() => {
       setLastActionSent(null);
-    }, 3000);
+    }, 3500);
   };
 
   // Add detected gesture to raw sign tokens
   const addTokenToSequence = (token) => {
     if (!token) return;
+    console.log(`[SignSync DeafView] Added token: "${token}"`);
     setRawSignTokens(prev => [...prev.slice(-4), token]);
   };
 
   // Run SmolLM2 / NLP grammar formulation
   const handleFormulateSentence = async () => {
     setIsFormulating(true);
+    console.log('[SignSync DeafView] Formulating sentence from tokens:', rawSignTokens);
     try {
       const sentence = await formulateGrammarSentence(rawSignTokens);
       setFormulatedSentence(sentence);
+      console.log('[SignSync DeafView] Formulated sentence result:', sentence);
     } finally {
       setIsFormulating(false);
     }
   };
 
-  // Speak the formulated sentence out loud
+  // Speak the formulated sentence out loud (Fixes Task 1 Speak Aloud button)
   const handleSpeakAloud = () => {
+    console.log('[SignSync DeafView] Speaking sentence out loud via TTS:', formulatedSentence);
+    
     speakFormulatedSentence(formulatedSentence);
+    
+    setLastActionSent({ 
+      action: `Vocalized Aloud: "${formulatedSentence}"`, 
+      time: new Date().toLocaleTimeString() 
+    });
+
     if (onSendAction) {
       onSendAction({
         type: 'formulated_speech',
         sender: 'deaf',
-        text: `[Deaf User Spoke]: "${formulatedSentence}"`
+        text: `[Deaf User Spoke Aloud]: "${formulatedSentence}"`
       });
     }
+
+    setTimeout(() => {
+      setLastActionSent(null);
+    }, 4000);
   };
 
   return (
     <div className="relative flex flex-col h-full bg-slate-950 border-b border-slate-800 transition-all duration-300">
       
-      {/* Top Header */}
+      {/* Top Header Bar */}
       <div className="flex items-center justify-between px-4 py-2.5 bg-slate-900/90 border-b border-slate-800">
         <div className="flex items-center gap-2">
           <div className="h-2.5 w-2.5 rounded-full bg-cyan-400 animate-pulse" />
@@ -434,7 +490,7 @@ export function DeafView({
           <button
             onClick={() => setShowCanvasOverlay(!showCanvasOverlay)}
             className={cn(
-              "p-1.5 rounded-xl text-xs flex items-center gap-1.5 border transition-all",
+              "p-1.5 rounded-xl text-xs flex items-center gap-1.5 border transition-all cursor-pointer",
               showCanvasOverlay 
                 ? 'bg-cyan-950/60 border-cyan-500/40 text-cyan-300' 
                 : 'bg-slate-800/60 border-slate-700 text-slate-400'
@@ -448,7 +504,7 @@ export function DeafView({
           <button
             onClick={() => setMirrorCamera(!mirrorCamera)}
             className={cn(
-              "p-1.5 rounded-xl text-xs flex items-center gap-1.5 border transition-all",
+              "p-1.5 rounded-xl text-xs flex items-center gap-1.5 border transition-all cursor-pointer",
               mirrorCamera 
                 ? 'bg-indigo-950/60 border-indigo-500/40 text-indigo-300' 
                 : 'bg-slate-800/60 border-slate-700 text-slate-400'
@@ -461,8 +517,9 @@ export function DeafView({
 
           <button
             onClick={cameraActive ? stopCamera : startCamera}
+            disabled={isStartingCamera}
             className={cn(
-              "p-1.5 rounded-xl text-xs flex items-center gap-1.5 border transition-all",
+              "p-1.5 rounded-xl text-xs flex items-center gap-1.5 border transition-all cursor-pointer",
               cameraActive 
                 ? 'bg-rose-950/60 border-rose-500/40 text-rose-300 hover:bg-rose-900/60' 
                 : 'bg-emerald-950/60 border-emerald-500/40 text-emerald-300 hover:bg-emerald-900/60'
@@ -490,6 +547,30 @@ export function DeafView({
         </div>
       )}
 
+      {/* Camera Permission / Error Warning Banner */}
+      {cameraError && !cameraActive && (
+        <div className="bg-amber-950/40 border-b border-amber-500/40 px-4 py-2 flex items-center justify-between text-xs text-amber-300">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0" />
+            <span>{cameraError}</span>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={startCamera}
+              className="px-2.5 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-[11px] font-semibold transition-all cursor-pointer"
+            >
+              Retry Camera
+            </button>
+            <button
+              onClick={() => { setSimulationMode(true); setCameraActive(true); }}
+              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30 rounded-lg text-[11px] font-semibold transition-all cursor-pointer"
+            >
+              Use Simulation Demo
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Aceternity UI: Glowing Effect wrapping the video container */}
       <div className="p-3 flex-1 flex flex-col justify-center">
         <GlowingEffect
@@ -511,30 +592,33 @@ export function DeafView({
             </div>
           )}
 
-          {/* Camera inactive overlay */}
+          {/* Camera inactive overlay with prominent Enable Camera button */}
           {!cameraActive && !simulationMode && (
             <div className="absolute inset-0 z-20 bg-slate-900/90 flex flex-col items-center justify-center gap-4 p-6 text-center">
               <div className="h-16 w-16 rounded-full bg-slate-800 flex items-center justify-center text-slate-400">
                 <CameraOff className="h-8 w-8" />
               </div>
               <div>
-                <h3 className="text-base font-semibold text-slate-200">Camera Feed Paused</h3>
+                <h3 className="text-base font-semibold text-slate-200">Webcam Feed Inactive</h3>
                 <p className="text-xs text-slate-400 max-w-sm mt-1">
-                  Enable webcam access to track hand gestures in real-time, or test in simulation mode.
+                  Click 'Enable Camera' to start tracking hand gestures in real-time, or test instantly with the Simulation Demo.
                 </p>
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={startCamera}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-600/30 transition-all"
+                  disabled={isStartingCamera}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-600/30 transition-all cursor-pointer flex items-center gap-2"
                 >
-                  Enable Camera
+                  <Camera className="h-4 w-4" />
+                  <span>{isStartingCamera ? 'Connecting...' : 'Enable Camera'}</span>
                 </button>
                 <button
                   onClick={() => { setSimulationMode(true); setCameraActive(true); }}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30 rounded-xl text-xs font-semibold transition-all"
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5"
                 >
-                  Run Simulation Demo
+                  <Play className="h-3.5 w-3.5" />
+                  <span>Run Simulation Demo</span>
                 </button>
               </div>
             </div>
@@ -576,11 +660,11 @@ export function DeafView({
             </div>
           </div>
 
-          {/* Action notification */}
+          {/* Live Action Toast Banner (Verifies button responsiveness) */}
           {lastActionSent && (
-            <div className="absolute bottom-4 right-4 z-20 bg-emerald-600/90 backdrop-blur-md text-white px-4 py-2 rounded-xl shadow-xl flex items-center gap-2 border border-emerald-400/50 animate-bounce">
-              <CheckCircle2 className="h-4 w-4" />
-              <span className="text-xs font-semibold">Sent: {lastActionSent.action}</span>
+            <div className="absolute bottom-4 right-4 z-20 bg-emerald-600/95 backdrop-blur-md text-white px-4 py-2 rounded-xl shadow-2xl flex items-center gap-2 border border-emerald-400/60 animate-bounce">
+              <CheckCircle2 className="h-4 w-4 text-white" />
+              <span className="text-xs font-bold">{lastActionSent.action}</span>
             </div>
           )}
         </GlowingEffect>
@@ -611,7 +695,7 @@ export function DeafView({
               {detectedKeyword && (
                 <button
                   onClick={() => addTokenToSequence(detectedKeyword)}
-                  className="px-2 py-0.5 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-medium"
+                  className="px-2 py-0.5 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-medium cursor-pointer"
                 >
                   + Add "{detectedKeyword}"
                 </button>
@@ -620,9 +704,9 @@ export function DeafView({
           </div>
         </div>
 
-        {/* Formulated Sentence & Vocalize Trigger */}
+        {/* Formulated Sentence & Speak Aloud Trigger */}
         <div className="flex items-center gap-2 w-full lg:w-auto justify-end">
-          <div className="text-right">
+          <div className="text-right flex-1 sm:flex-initial">
             <div className="text-xs font-semibold text-white bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
               "{formulatedSentence}"
             </div>
@@ -631,16 +715,17 @@ export function DeafView({
           <button
             onClick={handleFormulateSentence}
             disabled={isFormulating}
-            className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-indigo-500/30 text-xs font-medium flex items-center gap-1 transition-all"
+            className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-indigo-500/30 text-xs font-medium flex items-center gap-1 transition-all cursor-pointer"
             title="Re-run SmolLM2 sentence reconstruction"
           >
             {isFormulating ? <LottieDisplay animationData={aiProcessingLottie} className="w-4 h-4" /> : <Sparkles className="h-3.5 w-3.5" />}
             <span>{isFormulating ? 'Processing...' : 'Formulate'}</span>
           </button>
 
+          {/* Speak Aloud Button (Wired with TTS & Visual Toast) */}
           <button
             onClick={handleSpeakAloud}
-            className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white text-xs font-bold shadow-md shadow-indigo-600/30 flex items-center gap-1.5 transition-all transform active:scale-95"
+            className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white text-xs font-bold shadow-md shadow-indigo-600/30 flex items-center gap-1.5 transition-all transform active:scale-95 cursor-pointer"
             title="Vocalize this formulated sentence to the Hearing User"
           >
             <Volume2 className="h-3.5 w-3.5" />
@@ -649,7 +734,7 @@ export function DeafView({
         </div>
       </div>
 
-      {/* Aceternity UI: 3D Card Effect wrapping Action Buttons (Confirm Receipt, Repeat, Clarify) */}
+      {/* Action Buttons with 3D Card Effect (Wired for instant click response) */}
       <div className="p-3 bg-slate-900 border-t border-slate-800">
         <div className="flex flex-wrap items-center justify-between gap-3">
           
@@ -659,13 +744,17 @@ export function DeafView({
 
           <div className="flex items-center gap-3 flex-wrap">
             
-            {/* 1. Confirm Receipt (3D Card) */}
-            <CardContainer containerClassName="p-0" className="p-0">
+            {/* 1. Confirm Receipt */}
+            <CardContainer 
+              onClick={() => handleAction('Confirm Receipt')}
+              containerClassName="p-0" 
+              className="p-0"
+            >
               <CardBody className="p-0">
-                <CardItem translateZ={25}>
+                <CardItem translateZ={25} onClick={() => handleAction('Confirm Receipt')}>
                   <button
-                    onClick={() => handleAction('Confirm Receipt')}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-medium text-xs shadow-lg shadow-emerald-900/40 border border-emerald-400/40 transition-all transform active:scale-95"
+                    onClick={(e) => { e.stopPropagation(); handleAction('Confirm Receipt'); }}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-medium text-xs shadow-lg shadow-emerald-900/40 border border-emerald-400/40 transition-all transform active:scale-95 cursor-pointer pointer-events-auto"
                   >
                     <CheckCircle2 className="h-4 w-4" />
                     <span>Confirm Receipt</span>
@@ -674,13 +763,17 @@ export function DeafView({
               </CardBody>
             </CardContainer>
 
-            {/* 2. Repeat (3D Card) */}
-            <CardContainer containerClassName="p-0" className="p-0">
+            {/* 2. Repeat */}
+            <CardContainer 
+              onClick={() => handleAction('Repeat Request')}
+              containerClassName="p-0" 
+              className="p-0"
+            >
               <CardBody className="p-0">
-                <CardItem translateZ={25}>
+                <CardItem translateZ={25} onClick={() => handleAction('Repeat Request')}>
                   <button
-                    onClick={() => handleAction('Repeat Request')}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-medium text-xs shadow-lg shadow-indigo-900/40 border border-indigo-400/40 transition-all transform active:scale-95"
+                    onClick={(e) => { e.stopPropagation(); handleAction('Repeat Request'); }}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-medium text-xs shadow-lg shadow-indigo-900/40 border border-indigo-400/40 transition-all transform active:scale-95 cursor-pointer pointer-events-auto"
                   >
                     <RefreshCw className="h-4 w-4" />
                     <span>Repeat</span>
@@ -689,13 +782,17 @@ export function DeafView({
               </CardBody>
             </CardContainer>
 
-            {/* 3. Clarify (3D Card) */}
-            <CardContainer containerClassName="p-0" className="p-0">
+            {/* 3. Clarify */}
+            <CardContainer 
+              onClick={() => handleAction('Clarify Request')}
+              containerClassName="p-0" 
+              className="p-0"
+            >
               <CardBody className="p-0">
-                <CardItem translateZ={25}>
+                <CardItem translateZ={25} onClick={() => handleAction('Clarify Request')}>
                   <button
-                    onClick={() => handleAction('Clarify Request')}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-medium text-xs shadow-lg shadow-amber-900/40 border border-amber-400/40 transition-all transform active:scale-95"
+                    onClick={(e) => { e.stopPropagation(); handleAction('Clarify Request'); }}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-medium text-xs shadow-lg shadow-amber-900/40 border border-amber-400/40 transition-all transform active:scale-95 cursor-pointer pointer-events-auto"
                   >
                     <HelpCircle className="h-4 w-4" />
                     <span>Clarify</span>
@@ -711,19 +808,19 @@ export function DeafView({
             <span className="text-[11px] text-slate-500">Quick Tokens:</span>
             <button 
               onClick={() => addTokenToSequence('Hello')}
-              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] transition-colors"
+              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] transition-colors cursor-pointer"
             >
               + Hello 👋
             </button>
             <button 
               onClick={() => addTokenToSequence('Water')}
-              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] transition-colors"
+              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] transition-colors cursor-pointer"
             >
               + Water 💧
             </button>
             <button 
               onClick={() => addTokenToSequence('Help')}
-              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] transition-colors"
+              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] transition-colors cursor-pointer"
             >
               + Help 🆘
             </button>
