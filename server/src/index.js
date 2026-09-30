@@ -14,6 +14,22 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// Root endpoint for status & welcome (Fixes Cannot GET /)
+app.get('/', (req, res) => {
+  res.json({
+    status: 'online',
+    project: 'SignSync Accessibility Server',
+    version: '2.0.0',
+    endpoints: {
+      health: '/api/health',
+      dictionary: '/api/dictionary',
+      messages: '/api/messages',
+      geminiInterpret: '/api/gemini/interpret'
+    },
+    message: 'Welcome to SignSync API. Real-time two-way smart communicator between Deaf and Hearing users.'
+  });
+});
+
 // In-memory conversation history store (ready to sync with Supabase)
 let conversations = [
   {
