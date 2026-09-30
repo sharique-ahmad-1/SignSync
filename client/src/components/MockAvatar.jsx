@@ -245,7 +245,7 @@ export function MockAvatar({
 
     const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 100);
     // Camera positioned at chest level to frame full upper body, arms and hands
-    camera.position.set(0, 1.35, 1.85);
+    camera.position.set(0, 1.25, 2.05);
 
     // 2. WebGL Renderer
     const renderer = new THREE.WebGLRenderer({ 
@@ -269,7 +269,7 @@ export function MockAvatar({
     controls.maxPolarAngle = Math.PI / 2 + 0.1;
     controls.minDistance = 0.8;
     controls.maxDistance = 4.0;
-    controls.target.set(0, 1.25, 0); // Focus on avatar chest/head
+    controls.target.set(0, 1.15, 0); // Focus on avatar chest/head
     controls.update();
 
     // 4. Studio Lighting Rig (Clean Light Mode Studio)
@@ -379,11 +379,11 @@ export function MockAvatar({
         const activeSign = state.activeSign || currentSignRef.current || AVATAR_VOCABULARY.hello;
         const glossKey = (activeSign.gloss || activeSign.keyword || '').toUpperCase();
 
-        // Base Idle Rest Poses for Humanoid Body
-        let rArmRot = [0.15, 0.0, -1.05];
-        let lArmRot = [0.15, 0.0, 1.05];
-        let rForeArmRot = [-0.1, 0.0, 0.0];
-        let lForeArmRot = [-0.1, 0.0, 0.0];
+        // Base Idle Rest Poses for Humanoid Body (Natural Arms Down at Sides)
+        let rArmRot = [0.15, 0.05, 1.35];
+        let lArmRot = [0.15, -0.05, -1.35];
+        let rForeArmRot = [-0.05, 0.1, -0.2];
+        let lForeArmRot = [-0.05, -0.1, 0.2];
         let rHandRot = [0.0, 0.0, 0.0];
         let lHandRot = [0.0, 0.0, 0.0];
 
@@ -391,8 +391,8 @@ export function MockAvatar({
         let spineRot = [0.0, 0.0, 0.0];
 
         // Finger curls: [thumb, index, middle, ring, pinky] (0.0 = extended, 1.0 = curled)
-        let rCurls = [0.05, 0.05, 0.05, 0.05, 0.05];
-        let lCurls = [0.05, 0.05, 0.05, 0.05, 0.05];
+        let rCurls = [0.08, 0.08, 0.08, 0.08, 0.08];
+        let lCurls = [0.08, 0.08, 0.08, 0.08, 0.08];
 
         // Idle Breathing Oscillation
         spineRot[0] = Math.sin(time * 2.0) * 0.02;
@@ -400,17 +400,17 @@ export function MockAvatar({
         rArmRot[2] += Math.sin(time * 2.0) * 0.015;
         lArmRot[2] -= Math.sin(time * 2.0) * 0.015;
 
-        // Comprehensive Bone Rotations per Sign Gloss (Task 1)
+        // Comprehensive Bone Rotations per Sign Gloss (Mathematically Calibrated for Mixamo Rig)
         switch (glossKey) {
           case 'HELLO':
           case 'HI':
           case 'NAMASTE':
           case 'GREETINGS': {
-            // Right arm raises to temple, open hand waves side-to-side in greeting
+            // Right arm raises beside head, open palm waves side-to-side in greeting
             const wave = Math.sin(time * 6.0) * 0.35;
-            rArmRot = [0.75, 0.2, -0.35];
-            rForeArmRot = [-1.35, 0.25, 0.0];
-            rHandRot = [0.05, wave, 0.2];
+            rArmRot = [0.55, -0.35, 0.35];
+            rForeArmRot = [-0.2, 0.4, -1.5];
+            rHandRot = [0.1, wave, -0.2];
             rCurls = [0.0, 0.0, 0.0, 0.0, 0.0]; // Open Palm
             headRot = [0.08, wave * 0.2, 0.0]; // Polite greeting nod
             break;
@@ -420,16 +420,16 @@ export function MockAvatar({
           case 'ASSIST':
           case 'SAHAYATA': {
             // Two-handed sign: Thumbs-up fist on flat left palm, both elevating together
-            const lift = Math.sin(time * 3.5) * 0.12;
-            lArmRot = [0.55, 0.15, 0.3];
-            lForeArmRot = [-1.05, 0.45, 0.0];
-            lHandRot = [-0.45, 0.0, 0.0]; // Flat palm facing up
+            const lift = Math.sin(time * 3.5) * 0.1;
+            lArmRot = [0.45, -0.35, -0.65];
+            lForeArmRot = [0.1, -0.45, 1.25];
+            lHandRot = [-0.4, 0.0, 0.0]; // Flat palm facing up
             lCurls = [0.0, 0.0, 0.0, 0.0, 0.0];
 
-            rArmRot = [0.65 + lift, -0.15, -0.35];
-            rForeArmRot = [-1.15, -0.15, 0.0];
-            rHandRot = [0.2, -0.15, 0.0];
-            rCurls = [0.15, 0.95, 0.95, 0.95, 0.95]; // Thumbs-up fist
+            rArmRot = [0.45 + lift, 0.35, 0.65];
+            rForeArmRot = [-0.1, 0.45, -1.25];
+            rHandRot = [0.2, 0.0, 0.0];
+            rCurls = [0.2, 0.95, 0.95, 0.95, 0.95]; // Thumbs-up fist
             break;
           }
 
@@ -437,13 +437,13 @@ export function MockAvatar({
           case 'HAAN':
           case 'AGREE':
           case 'OK': {
-            // Right fist nodding affirmatively up and down
+            // Right fist nodding affirmatively up and down in front of chest
             const nod = Math.sin(time * 6.0) * 0.35;
-            rArmRot = [0.75, 0.0, -0.4];
-            rForeArmRot = [-1.05, 0.0, 0.0];
+            rArmRot = [0.45, -0.25, 0.65];
+            rForeArmRot = [-0.1, 0.35, -1.4];
             rHandRot = [0.35 + nod, 0.0, 0.0];
             rCurls = [0.95, 1.0, 1.0, 1.0, 1.0]; // Tight fist (Mushti)
-            headRot = [nod * 0.25, 0.0, 0.0];
+            headRot = [nod * 0.2, 0.0, 0.0];
             break;
           }
 
@@ -452,11 +452,11 @@ export function MockAvatar({
           case 'DISAGREE': {
             // Index & Middle extended in "V", waving side-to-side
             const shake = Math.sin(time * 6.5) * 0.35;
-            rArmRot = [0.75, 0.0, -0.4];
-            rForeArmRot = [-1.1, 0.0, 0.0];
+            rArmRot = [0.45, -0.25, 0.65];
+            rForeArmRot = [-0.1, 0.35, -1.4];
             rHandRot = [0.0, shake, 0.0];
             rCurls = [0.85, 0.0, 0.0, 0.95, 0.95]; // Two fingers
-            headRot = [0.0, shake * 0.3, 0.0]; // Shaking head
+            headRot = [0.0, shake * 0.25, 0.0]; // Shaking head
             break;
           }
 
@@ -466,9 +466,9 @@ export function MockAvatar({
           case 'PEENA': {
             // W-Handshape brought to chin, tapping twice
             const tap = Math.sin(time * 5.5) * 0.15;
-            rArmRot = [0.9, 0.15, -0.3];
-            rForeArmRot = [-1.35 + tap, 0.2, 0.0];
-            rHandRot = [0.25 + tap, 0.0, 0.0];
+            rArmRot = [0.6, -0.3, 0.3];
+            rForeArmRot = [-0.15, 0.35, -1.65 + tap];
+            rHandRot = [0.2, 0.0, 0.0];
             rCurls = [0.95, 0.0, 0.0, 0.0, 0.95]; // W-hand (Tripataka)
             headRot = [0.05, 0.0, 0.0];
             break;
@@ -480,11 +480,11 @@ export function MockAvatar({
           case 'KHAO':
           case 'HUNGRY': {
             // Bunched fingertips brought to mouth and tapping repeatedly
-            const eatTap = Math.sin(time * 5.5) * 0.18;
-            rArmRot = [0.95, 0.0, -0.35];
-            rForeArmRot = [-1.4 + eatTap, 0.1, 0.0];
-            rHandRot = [0.3 + eatTap, 0.0, 0.0];
-            rCurls = [0.55, 0.55, 0.55, 0.55, 0.55]; // Bunched fingertips
+            const eatTap = Math.sin(time * 5.5) * 0.15;
+            rArmRot = [0.6, -0.25, 0.3];
+            rForeArmRot = [-0.2, 0.35, -1.7 + eatTap];
+            rHandRot = [0.3, 0.0, 0.0];
+            rCurls = [0.6, 0.6, 0.6, 0.6, 0.6]; // Bunched fingertips
             break;
           }
 
@@ -492,9 +492,9 @@ export function MockAvatar({
           case 'RUKO':
           case 'WAIT': {
             // Vertical open palm pushed firmly forward
-            rArmRot = [1.1, 0.0, -0.1];
-            rForeArmRot = [-0.15, 0.0, 0.0];
-            rHandRot = [-0.65, 0.0, 0.0]; // Wrist bent back
+            rArmRot = [0.8, -0.15, 0.45];
+            rForeArmRot = [0.0, 0.2, -0.4];
+            rHandRot = [-0.75, 0.0, 0.0]; // Wrist bent back so palm faces forward
             rCurls = [0.0, 0.0, 0.0, 0.0, 0.0]; // Open forward palm
             break;
           }
@@ -505,8 +505,8 @@ export function MockAvatar({
           case 'DHANYAVAAD': {
             // Flat fingertips sweep forward and outward from chin
             const sweep = (Math.sin(time * 3.5) + 1.0) * 0.5; // 0 to 1
-            rArmRot = [0.9 - sweep * 0.3, 0.1, -0.25];
-            rForeArmRot = [-1.3 + sweep * 0.6, 0.0, 0.0];
+            rArmRot = [0.65 - sweep * 0.2, -0.2, 0.35 + sweep * 0.2];
+            rForeArmRot = [-0.2 + sweep * 0.8, 0.3, -1.6 + sweep * 1.0];
             rHandRot = [0.25 - sweep * 0.3, 0.0, 0.0];
             rCurls = [0.0, 0.0, 0.0, 0.0, 0.0];
             headRot = [0.1, 0.0, 0.0]; // Grateful bow
@@ -516,10 +516,10 @@ export function MockAvatar({
           case 'PLEASE':
           case 'KRIPYA': {
             // Open hand making circular motion on chest
-            const circleX = Math.sin(time * 4.0) * 0.15;
-            const circleY = Math.cos(time * 4.0) * 0.15;
-            rArmRot = [0.75 + circleY, 0.1, -0.35 + circleX];
-            rForeArmRot = [-1.2, 0.2, 0.0];
+            const circleX = Math.sin(time * 4.0) * 0.12;
+            const circleY = Math.cos(time * 4.0) * 0.12;
+            rArmRot = [0.45 + circleY, -0.2, 0.65 + circleX];
+            rForeArmRot = [-0.1, 0.35, -1.35];
             rHandRot = [0.15, 0.0, 0.0];
             rCurls = [0.0, 0.0, 0.0, 0.0, 0.0];
             headRot = [0.08, 0.0, 0.0];
@@ -529,8 +529,8 @@ export function MockAvatar({
           case 'LOVE':
           case 'PYAR': {
             // ILY sign: Thumb, Index, Pinky extended; Middle & Ring curled
-            rArmRot = [0.75, 0.15, -0.3];
-            rForeArmRot = [-1.15, 0.25, 0.0];
+            rArmRot = [0.55, -0.25, 0.45];
+            rForeArmRot = [-0.15, 0.35, -1.4];
             rHandRot = [0.1, Math.sin(time * 4.0) * 0.15, 0.0];
             rCurls = [0.0, 0.0, 1.0, 1.0, 0.0]; // ILY hand
             break;
@@ -541,14 +541,14 @@ export function MockAvatar({
           case 'DAWAI':
           case 'CHIKITSAK': {
             // Left wrist held horizontal, right index & middle fingers checking pulse
-            lArmRot = [0.5, 0.25, 0.25];
-            lForeArmRot = [-1.1, 0.35, 0.0];
-            lHandRot = [-0.2, 0.2, 0.0];
+            lArmRot = [0.45, -0.3, -0.65];
+            lForeArmRot = [0.0, -0.45, 1.2];
+            lHandRot = [0.0, 0.3, 0.0];
 
-            rArmRot = [0.65, -0.2, -0.35];
-            rForeArmRot = [-1.25, -0.25, 0.0];
+            rArmRot = [0.45, 0.25, 0.65];
+            rForeArmRot = [-0.1, 0.4, -1.25];
             rHandRot = [0.35, 0.2, 0.0];
-            rCurls = [0.8, 0.0, 0.0, 0.9, 0.9]; // Pulse checking fingers
+            rCurls = [0.85, 0.0, 0.0, 0.95, 0.95]; // Pulse checking fingers
             break;
           }
 
@@ -557,11 +557,11 @@ export function MockAvatar({
           case 'AAPATKAAL':
           case 'KHATARA': {
             // Both hands alert, urgent upper body posture
-            const alert = Math.sin(time * 8.0) * 0.25;
-            rArmRot = [0.8 + alert, 0.2, -0.4];
-            lArmRot = [0.8 - alert, -0.2, 0.4];
-            rForeArmRot = [-1.15, 0.0, 0.0];
-            lForeArmRot = [-1.15, 0.0, 0.0];
+            const alert = Math.sin(time * 8.0) * 0.15;
+            rArmRot = [0.55 + alert, 0.2, 0.55];
+            lArmRot = [0.55 - alert, -0.2, -0.55];
+            rForeArmRot = [-0.1, 0.35, -1.2];
+            lForeArmRot = [0.1, -0.35, 1.2];
             rCurls = [0.95, 0.95, 0.95, 0.95, 0.95];
             lCurls = [0.95, 0.95, 0.95, 0.95, 0.95];
             spineRot = [0.08, alert * 0.1, 0.0];
@@ -573,16 +573,16 @@ export function MockAvatar({
           case 'KAHAN':
           case 'KYA': {
             // Questioning gesture: Both palms up, shrugging slightly
-            const shrug = Math.sin(time * 4.5) * 0.15;
-            rArmRot = [0.55, 0.15, -0.45];
-            lArmRot = [0.55, -0.15, 0.45];
-            rForeArmRot = [-1.05 + shrug, 0.35, 0.0];
-            lForeArmRot = [-1.05 + shrug, -0.35, 0.0];
+            const shrug = Math.sin(time * 4.5) * 0.12;
+            rArmRot = [0.4, 0.25, 0.65];
+            lArmRot = [0.4, -0.25, -0.65];
+            rForeArmRot = [0.0, 0.35, -1.1 - shrug];
+            lForeArmRot = [0.0, -0.35, 1.1 + shrug];
             rHandRot = [-0.35, 0.2, 0.0];
             lHandRot = [-0.35, -0.2, 0.0];
-            rCurls = [0.2, 0.2, 0.2, 0.2, 0.2];
-            lCurls = [0.2, 0.2, 0.2, 0.2, 0.2];
-            headRot = [0.0, shrug * 0.3, 0.0];
+            rCurls = [0.1, 0.1, 0.1, 0.1, 0.1];
+            lCurls = [0.1, 0.1, 0.1, 0.1, 0.1];
+            headRot = [0.0, shrug * 0.2, 0.0];
             break;
           }
 
@@ -598,8 +598,8 @@ export function MockAvatar({
             } else {
               rCurls = [0.05, 0.05, 0.05, 0.05, 0.05];
             }
-            rArmRot = [0.65, 0.1, -0.4];
-            rForeArmRot = [-1.1, 0.0, 0.0];
+            rArmRot = [0.45, -0.15, 0.65];
+            rForeArmRot = [-0.1, 0.25, -1.2];
             break;
           }
         }
@@ -719,8 +719,8 @@ export function MockAvatar({
   // Reset Camera View in OrbitControls
   const handleResetCamera = () => {
     if (threeStateRef.current && threeStateRef.current.controls) {
-      threeStateRef.current.camera.position.set(0, 1.35, 1.85);
-      threeStateRef.current.controls.target.set(0, 1.25, 0);
+      threeStateRef.current.camera.position.set(0, 1.25, 2.05);
+      threeStateRef.current.controls.target.set(0, 1.15, 0);
       threeStateRef.current.controls.update();
     }
   };
