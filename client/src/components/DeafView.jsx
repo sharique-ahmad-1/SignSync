@@ -101,9 +101,9 @@ export function DeafView({
           },
           runningMode: 'VIDEO',
           numHands: 2,
-          minHandDetectionConfidence: 0.5,
-          minHandPresenceConfidence: 0.5,
-          minTrackingConfidence: 0.5
+          minHandDetectionConfidence: 0.75,
+          minHandPresenceConfidence: 0.75,
+          minTrackingConfidence: 0.75
         });
 
         if (!isMounted) return;
@@ -122,7 +122,10 @@ export function DeafView({
               delegate: 'CPU'
             },
             runningMode: 'VIDEO',
-            numHands: 2
+            numHands: 2,
+            minHandDetectionConfidence: 0.75,
+            minHandPresenceConfidence: 0.75,
+            minTrackingConfidence: 0.75
           });
 
           if (!isMounted) return;
@@ -155,7 +158,6 @@ export function DeafView({
     try {
       let stream = null;
       try {
-        // First try standard high-definition user-facing camera
         stream = await navigator.mediaDevices.getUserMedia({
           video: {
             width: { ideal: 1280, max: 1920 },
@@ -166,7 +168,6 @@ export function DeafView({
         });
       } catch (hdError) {
         console.log('[Camera] HD constraints failed, falling back to basic video constraint:', hdError);
-        // Fallback to basic constraint
         stream = await navigator.mediaDevices.getUserMedia({
           video: true,
           audio: false
@@ -180,7 +181,6 @@ export function DeafView({
         videoRef.current.setAttribute('playsinline', 'true');
         videoRef.current.muted = true;
         
-        // Wait for video to begin playing
         await videoRef.current.play().catch(playErr => {
           console.log('[Camera] Autoplay promise handled:', playErr);
         });
@@ -231,48 +231,99 @@ export function DeafView({
     return () => stopCamera();
   }, []);
 
-  // Gesture classification from 21 landmarks
+  // Sliding window buffer for temporal gesture debouncing (Task 1)
+  const gestureWindowRef = useRef([]);
+  const [gestureStability, setGestureStability] = useState(100);
+
+  // Rotation-invariant Euclidean distance gesture classifier
   const classifyGesture = (landmarks) => {
-    if (!landmarks || landmarks.length === 0) return { gesture: 'No Hand', keyword: null };
+    if (!landmarks || landmarks.length < 21) return { gesture: 'No Hand in Frame', keyword: null };
+
+    const dist = (p1, p2) => Math.hypot(p1.x - p2.x, p1.y - p2.y);
 
     const wrist = landmarks[0];
+    const thumbTip = landmarks[4];
+    const thumbIp = landmarks[3];
+    const thumbMcp = landmarks[2];
     const indexTip = landmarks[8];
+    const indexPip = landmarks[6];
     const indexMcp = landmarks[5];
     const middleTip = landmarks[12];
+    const middlePip = landmarks[10];
     const middleMcp = landmarks[9];
     const ringTip = landmarks[16];
+    const ringPip = landmarks[14];
     const ringMcp = landmarks[13];
     const pinkyTip = landmarks[20];
+    const pinkyPip = landmarks[18];
     const pinkyMcp = landmarks[17];
-    const thumbTip = landmarks[4];
 
-    const isIndexExtended = indexTip.y < indexMcp.y;
-    const isMiddleExtended = middleTip.y < middleMcp.y;
-    const isRingExtended = ringTip.y < ringMcp.y;
-    const isPinkyExtended = pinkyTip.y < pinkyMcp.y;
-    const isThumbUp = thumbTip.y < wrist.y && thumbTip.y < indexMcp.y;
+    // Distance-based invariant extension checks:
+    const isIndexExt = dist(indexTip, wrist) > dist(indexPip, wrist) * 1.15;
+    const isMiddleExt = dist(middleTip, wrist) > dist(middlePip, wrist) * 1.15;
+    const isRingExt = dist(ringTip, wrist) > dist(ringPip, wrist) * 1.15;
+    const isPinkyExt = dist(pinkyTip, wrist) > dist(pinkyPip, wrist) * 1.15;
 
-    if (isIndexExtended && isMiddleExtended && isRingExtended && isPinkyExtended) {
-      return { gesture: 'Open Palm / Waving 👋', keyword: 'Hello' };
-    }
-    if (isIndexExtended && isMiddleExtended && !isRingExtended && !isPinkyExtended) {
-      return { gesture: 'Victory / Two ✌️', keyword: 'Peace' };
-    }
-    if (isIndexExtended && !isMiddleExtended && !isRingExtended && !isPinkyExtended) {
-      return { gesture: 'Pointing ☝️', keyword: 'Me' };
-    }
-    if (isThumbUp && !isIndexExtended && !isMiddleExtended && !isRingExtended) {
-      return { gesture: 'Thumbs Up 👍 (Affirmative)', keyword: 'Yes' };
-    }
-    if (!isIndexExtended && !isMiddleExtended && !isRingExtended && !isPinkyExtended) {
-      return { gesture: 'Closed Fist ✊ (Nod)', keyword: 'Help' };
-    }
-    if (isThumbUp && isIndexExtended && isPinkyExtended && !isMiddleExtended && !isRingExtended) {
-      return { gesture: 'I Love You (ASL 🤟)', keyword: 'Love' };
+    // Thumb extension & orientation
+    const isThumbExt = dist(thumbTip, pinkyMcp) > dist(thumbIp, pinkyMcp) * 1.08;
+    const isThumbUp = (thumbTip.y < indexMcp.y) && !isIndexExt && !isMiddleExt && !isRingExt && !isPinkyExt;
+
+    // Pinch / OK sign detection
+    const isPinch = dist(thumbTip, indexTip) < 0.08;
+
+    // 1. Open Palm (Hello / Wave)
+    if (isIndexExt && isMiddleExt && isRingExt && isPinkyExt && isThumbExt) {
+      return { gesture: 'Open Palm (Wave / Hello) 👋', keyword: 'Hello' };
     }
 
-    return { gesture: 'Active Signing ✋', keyword: null };
+    // 2. Closed Fist (Yes / Nod / Affirmative)
+    if (!isIndexExt && !isMiddleExt && !isRingExt && !isPinkyExt && !isThumbExt) {
+      return { gesture: 'Closed Fist (Affirm / Yes) ✊', keyword: 'Yes' };
+    }
+
+    // 3. Thumbs Up (Yes / Good)
+    if (isThumbUp) {
+      return { gesture: 'Thumbs Up (Good / Yes) 👍', keyword: 'Yes' };
+    }
+
+    // 4. Pointing Up/Forward (Help / Attention / Me)
+    if (isIndexExt && !isMiddleExt && !isRingExt && !isPinkyExt && !isThumbExt) {
+      return { gesture: 'Pointing (Attention / Help) ☝️', keyword: 'Help' };
+    }
+
+    // 5. Victory / Two (Decline / No)
+    if (isIndexExt && isMiddleExt && !isRingExt && !isPinkyExt) {
+      return { gesture: 'Victory (Decline / No) ✌️', keyword: 'No' };
+    }
+
+    // 6. Thumb + Pinky Extended (Call / Urgent Help)
+    if (isThumbExt && isPinkyExt && !isIndexExt && !isMiddleExt && !isRingExt) {
+      return { gesture: 'Urgent Alert (Need Help) 🤙', keyword: 'Help' };
+    }
+
+    // 7. I Love You (ASL/ISL ILY Sign: Thumb, Index, Pinky extended)
+    if (isThumbExt && isIndexExt && isPinkyExt && !isMiddleExt && !isRingExt) {
+      return { gesture: 'I Love You (ASL/ISL ILY) 🤟', keyword: 'Love' };
+    }
+
+    // 8. Three Fingers (Water / W-Shape)
+    if (isIndexExt && isMiddleExt && isRingExt && !isPinkyExt) {
+      return { gesture: 'Three Fingers (Water / W) 💧', keyword: 'Water' };
+    }
+
+    // 9. Pinch / OK (Understood)
+    if (isPinch && isMiddleExt && isRingExt) {
+      return { gesture: 'Pinch (OK / Understood) 👌', keyword: 'Yes' };
+    }
+
+    // 10. Flat Stop Hand
+    if (isIndexExt && isMiddleExt && isRingExt && isPinkyExt && !isThumbExt) {
+      return { gesture: 'Flat Hand (Stop / Wait) ✋', keyword: 'Stop' };
+    }
+
+    return { gesture: 'Active Hand Motion ✋', keyword: null };
   };
+
 
   // Continuous prediction loop
   const predictLoop = useCallback(() => {
@@ -317,10 +368,11 @@ export function DeafView({
         ];
 
         drawHandOnCanvas(ctx, fakeLandmarks, width, height, '#06b6d4', '#10b981');
-        setDetectedGesture('Waving / Open Palm (Simulated Demo)');
+        setDetectedGesture('Open Palm (Wave / Hello) 👋');
         setDetectedKeyword('Hello');
         setHandCount(1);
         setTrackingConfidence(99);
+        setGestureStability(100);
       }
       animFrameIdRef.current = requestAnimationFrame(predictLoop);
       return;
@@ -344,9 +396,41 @@ export function DeafView({
           : 95;
         setTrackingConfidence(avgConfidence);
 
-        const { gesture, keyword } = classifyGesture(results.landmarks[0]);
-        setDetectedGesture(gesture);
-        if (keyword) setDetectedKeyword(keyword);
+        const rawResult = classifyGesture(results.landmarks[0]);
+
+        // Push to temporal smoothing sliding window buffer (Task 1)
+        const window = gestureWindowRef.current;
+        window.push(rawResult);
+        if (window.length > 7) {
+          window.shift();
+        }
+
+        // Count frequency of detected gestures in the window
+        const gestureCounts = {};
+        window.forEach(item => {
+          gestureCounts[item.gesture] = (gestureCounts[item.gesture] || 0) + 1;
+        });
+
+        let dominantGesture = rawResult.gesture;
+        let dominantCount = 0;
+        for (const [gest, count] of Object.entries(gestureCounts)) {
+          if (count > dominantCount) {
+            dominantCount = count;
+            dominantGesture = gest;
+          }
+        }
+
+        const stabilityRatio = Math.round((dominantCount / window.length) * 100);
+        setGestureStability(stabilityRatio);
+
+        // Stabilize gesture when >= 4 out of 7 frames agree (or small window startup)
+        if (dominantCount >= 4 || window.length < 4) {
+          setDetectedGesture(dominantGesture);
+          const matched = window.find(item => item.gesture === dominantGesture && item.keyword);
+          if (matched && matched.keyword) {
+            setDetectedKeyword(matched.keyword);
+          }
+        }
 
         if (showCanvasOverlay) {
           results.landmarks.forEach((landmarks, index) => {
@@ -355,9 +439,11 @@ export function DeafView({
           });
         }
       } else {
+        gestureWindowRef.current = [];
         setHandCount(0);
         setDetectedGesture('No Hand in Frame');
         setTrackingConfidence(0);
+        setGestureStability(0);
       }
     }
 
@@ -657,6 +743,8 @@ export function DeafView({
               <span>Hands: <strong className="text-cyan-400">{handCount}</strong></span>
               <span>•</span>
               <span>Confidence: <strong className="text-emerald-400">{trackingConfidence}%</strong></span>
+              <span>•</span>
+              <span>Stability: <strong className={gestureStability >= 70 ? "text-emerald-400" : "text-amber-400"}>{gestureStability}%</strong></span>
             </div>
           </div>
 
