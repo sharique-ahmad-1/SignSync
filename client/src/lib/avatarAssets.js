@@ -350,15 +350,124 @@ export const AVATAR_VOCABULARY = {
       leftElbow: [0, -0.5, -0.3],
       head: [0, 0.2, 0]
     },
-    cycle: { joint: 'rightShoulder', axis: 'y', freq: 4, amp: 0.25 },
+    cycle: { joint: 'both', axis: 'y', freq: 4, amp: 0.25 },
+    islStandard: true
+  },
+  name: {
+    gloss: 'NAME',
+    label: 'Name / Naam',
+    hindi: 'नाम',
+    category: 'Questions',
+    handShape: 'H-Hand Crossed',
+    motionType: 'chin_touch_cycle',
+    durationMs: 2400,
+    videoUrl: 'https://media.giphy.com/media/l41lI4bYmcsPJX9Go/giphy.gif',
+    description: 'Index and middle fingers of both hands extended, tapping across each other.',
+    bonePose: {
+      rightShoulder: [0.7, 0.2, 0.4],
+      rightElbow: [0, -0.6, 0.3],
+      leftShoulder: [0.7, -0.2, 0.4],
+      leftElbow: [0, -0.6, -0.3],
+      head: [0.05, 0, 0]
+    },
+    cycle: { joint: 'both', axis: 'x', freq: 4, amp: 0.15 },
+    islStandard: true
+  },
+  what: {
+    gloss: 'WHAT',
+    label: 'What / Kya',
+    hindi: 'क्या',
+    category: 'Questions',
+    handShape: 'Palms Up Shake',
+    motionType: 'wave_cycle',
+    durationMs: 2500,
+    videoUrl: 'https://media.giphy.com/media/l41lI4bYmcsPJX9Go/giphy.gif',
+    description: 'Both hands held waist level palms up, shaking slightly side-to-side with questioning face.',
+    bonePose: {
+      rightShoulder: [0.55, 0.3, 0.4],
+      rightElbow: [0, -0.5, 0.3],
+      leftShoulder: [0.55, -0.3, 0.4],
+      leftElbow: [0, -0.5, -0.3],
+      head: [0, 0.15, 0]
+    },
+    cycle: { joint: 'both', axis: 'y', freq: 4, amp: 0.2 },
+    islStandard: true
+  },
+  how: {
+    gloss: 'HOW',
+    label: 'How / Kaise',
+    hindi: 'कैसे',
+    category: 'Questions',
+    handShape: 'Curved Palms Outward',
+    motionType: 'wave_cycle',
+    durationMs: 2500,
+    videoUrl: 'https://media.giphy.com/media/l41lI4bYmcsPJX9Go/giphy.gif',
+    description: 'Back of curved fingers resting together then rolling upward and outward.',
+    bonePose: {
+      rightShoulder: [0.6, 0.25, 0.45],
+      rightElbow: [0, -0.5, 0.35],
+      leftShoulder: [0.6, -0.25, 0.45],
+      leftElbow: [0, -0.5, -0.35],
+      head: [0.1, 0, 0]
+    },
+    cycle: { joint: 'both', axis: 'z', freq: 3, amp: 0.25 },
+    islStandard: true
+  },
+  good: {
+    gloss: 'GOOD',
+    label: 'Good / Accha',
+    hindi: 'अच्छा',
+    category: 'Courtesy',
+    handShape: 'Thumbs Up / Chin to Hand',
+    motionType: 'fist_nod_cycle',
+    durationMs: 2300,
+    videoUrl: 'https://media.giphy.com/media/l41lI4bYmcsPJX9Go/giphy.gif',
+    description: 'Fingers from chin move outward landing flat into other palm with a positive nod.',
+    bonePose: {
+      rightShoulder: [0.85, 0.1, 0.45],
+      rightElbow: [0, -0.5, 0.35],
+      leftShoulder: [0.4, -0.2, 0.4],
+      leftElbow: [0, -0.4, -0.3],
+      head: [0.15, 0, 0]
+    },
+    cycle: { joint: 'head', axis: 'x', freq: 3, amp: 0.2 },
     islStandard: true
   }
 };
 
 // Common filler words ignored in ISL syntax
 const STOP_WORDS = new Set([
-  'is', 'am', 'are', 'was', 'were', 'the', 'a', 'an', 'and', 'to', 'of', 'in', 'on', 'at', 'it', 'be', 'do', 'does', 'did', 'so'
+  'is', 'am', 'are', 'was', 'were', 'the', 'a', 'an', 'and', 'to', 'of', 'in', 'on', 'at', 'it', 'be', 'do', 'does', 'did', 'so', 'can'
 ]);
+
+/**
+ * Reorders English words into Indian Sign Language (ISL) SOV grammar
+ * Based on Sijosaju ISL grammar parsing architecture:
+ * - Subject - Object - Verb order (instead of English SVO)
+ * - WH-questions placed at end of sentence (e.g. "What is your name?" -> "YOU NAME WHAT")
+ * - Negatives placed at end of sentence (e.g. "I do not want water" -> "ME WATER NO")
+ */
+export function reorderToISLGrammar(words) {
+  const filtered = words.filter(w => !STOP_WORDS.has(w));
+  if (filtered.length <= 1) return filtered;
+
+  const questions = [];
+  const negatives = [];
+  const regular = [];
+
+  for (const w of filtered) {
+    if (['what', 'where', 'when', 'why', 'who', 'how'].includes(w)) {
+      questions.push(w);
+    } else if (['not', 'no'].includes(w)) {
+      negatives.push('no');
+    } else {
+      regular.push(w);
+    }
+  }
+
+  // Combine: Regular Content Words -> Negatives -> Questions at end
+  return [...regular, ...negatives, ...questions];
+}
 
 /**
  * Parses raw English text into an ordered list of ISL Sign Glosses
@@ -375,12 +484,11 @@ export function parseTextToSignGlosses(rawText) {
     .replace(/'s/g, '')
     .replace(/[^\w\s]/g, ' ');
 
-  const words = sanitized.split(/\s+/).filter(Boolean);
+  const rawWords = sanitized.split(/\s+/).filter(Boolean);
+  const orderedWords = reorderToISLGrammar(rawWords);
   const matchedGlosses = [];
 
-  for (const word of words) {
-    if (STOP_WORDS.has(word)) continue;
-
+  for (const word of orderedWords) {
     if (AVATAR_VOCABULARY[word]) {
       matchedGlosses.push({
         keyword: word,
@@ -394,7 +502,9 @@ export function parseTextToSignGlosses(rawText) {
           keyword: char.toUpperCase(),
           gloss: char.toUpperCase(),
           label: `Letter ${char.toUpperCase()}`,
+          hindi: char.toUpperCase(),
           category: 'Fingerspelling',
+          handShape: `Letter ${char.toUpperCase()} Posture`,
           durationMs: 1400,
           description: `ISL Fingerspelling posture for letter ${char.toUpperCase()}`,
           videoUrl: 'https://media.giphy.com/media/26gsjCZpPolPr3sBy/giphy.gif',
