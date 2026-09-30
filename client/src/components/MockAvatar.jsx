@@ -33,7 +33,7 @@ export function MockAvatar({
   repeatTrigger, 
   onSignRecognized 
 }) {
-  const [renderMode, setRenderMode] = useState('dual'); // 'dual' | '3d' | 'video'
+  const [renderMode, setRenderMode] = useState('video'); // 'video' strictly enforced for Phase 14 demo
   const [activeSequence, setActiveSequence] = useState([
     { keyword: 'hello', ...AVATAR_VOCABULARY.hello }
   ]);
@@ -817,46 +817,7 @@ export function MockAvatar({
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Mode Switcher: Dual Hybrid vs 3D WebGL vs Video Clip */}
-          <div className="flex items-center bg-slate-950 p-0.5 rounded-xl border border-slate-800 text-[11px]">
-            <button
-              onClick={() => setRenderMode('dual')}
-              className={cn(
-                "px-2.5 py-1 rounded-lg font-medium flex items-center gap-1.5 transition-all cursor-pointer",
-                renderMode === 'dual'
-                  ? "bg-indigo-600 text-white shadow-sm"
-                  : "text-slate-400 hover:text-slate-200"
-              )}
-              title="Dual Mode: 3D Model + Verified ISL Clip Inset"
-            >
-              <Layers className="h-3 w-3 text-cyan-300" />
-              <span>Dual Hybrid</span>
-            </button>
-            <button
-              onClick={() => setRenderMode('3d')}
-              className={cn(
-                "px-2.5 py-1 rounded-lg font-medium flex items-center gap-1.5 transition-all cursor-pointer",
-                renderMode === '3d'
-                  ? "bg-indigo-600 text-white shadow-sm"
-                  : "text-slate-400 hover:text-slate-200"
-              )}
-            >
-              <Box className="h-3 w-3" />
-              <span>3D Model</span>
-            </button>
-            <button
-              onClick={() => setRenderMode('video')}
-              className={cn(
-                "px-2.5 py-1 rounded-lg font-medium flex items-center gap-1.5 transition-all cursor-pointer",
-                renderMode === 'video'
-                  ? "bg-cyan-600 text-white shadow-sm"
-                  : "text-slate-400 hover:text-slate-200"
-              )}
-            >
-              <Video className="h-3 w-3" />
-              <span>Sign Clip</span>
-            </button>
-          </div>
+          {/* Phase 14: Mode Switcher completely removed to enforce video fallback */}
 
           {/* Model Upload Button for Verity .glb */}
           <button
@@ -948,40 +909,7 @@ export function MockAvatar({
             </div>
           )}
 
-          {/* 3D WebGL Canvas (Active in '3d' and 'dual' modes) */}
-          <div 
-            ref={mountRef} 
-            className={cn(
-              "w-full h-full min-h-[260px] transition-opacity duration-300 flex items-center justify-center cursor-grab active:cursor-grabbing",
-              renderMode !== 'video' ? 'opacity-100' : 'hidden'
-            )}
-          />
-
-          {/* Dual Mode: Picture-in-Picture Floating Sign Demo Inset (Phase 12: Enlarged for demo) */}
-          {renderMode === 'dual' && currentSign.videoUrl && (
-            <div className="absolute bottom-16 right-2 sm:right-3 z-20 w-40 sm:w-48 md:w-56 bg-slate-950/90 backdrop-blur-md rounded-2xl border border-indigo-500/40 p-1.5 sm:p-2 shadow-2xl flex flex-col items-center animate-fadeIn pointer-events-auto">
-              <div className="flex items-center justify-between w-full pb-1 mb-1 border-b border-slate-800 text-[10px]">
-                <span className="font-semibold text-cyan-300 text-[9px] sm:text-[10px]">ISL Sign Demo</span>
-                <button
-                  onClick={() => setRenderMode('video')}
-                  className="text-[9px] font-mono text-emerald-400 hover:text-white bg-emerald-500/20 hover:bg-emerald-500/40 px-1.5 py-0.5 rounded-md border border-emerald-500/30 transition-all cursor-pointer"
-                >
-                  ⬆ Expand Full
-                </button>
-              </div>
-              <div className="w-full h-24 sm:h-28 md:h-32 overflow-hidden rounded-xl bg-black flex items-center justify-center">
-                <img
-                  key={currentSign.videoUrl}
-                  src={currentSign.videoUrl}
-                  alt={`ISL Sign for ${currentSign.label}`}
-                  className="w-full h-full object-contain"
-                />
-              </div>
-              <div className="text-[9px] text-slate-400 mt-1 truncate w-full text-center font-mono">
-                [{currentSign.gloss}] {currentSign.hindi || ''}
-              </div>
-            </div>
-          )}
+          {/* Phase 14: 3D WebGL Canvas completely removed to force video fallback */}
 
           {/* Mode: Video Only Stage (Phase 12: Expanded to fill full container) */}
           {renderMode === 'video' && (
@@ -996,12 +924,6 @@ export function MockAvatar({
                 <span className="text-sm text-cyan-300 font-semibold">
                   {currentSign.handShape || 'ISL Standard Gesture'}
                 </span>
-                <button
-                  onClick={() => setRenderMode('dual')}
-                  className="text-[10px] px-2 py-0.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 transition-all cursor-pointer border border-indigo-400"
-                >
-                  Show 3D + Video
-                </button>
               </div>
             </div>
           )}
