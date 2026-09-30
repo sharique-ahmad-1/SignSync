@@ -244,6 +244,37 @@ function heuristicSentenceFormulation(tokens) {
   if (tokenSet.has('no') && tokenSet.has('understand')) {
     return 'I did not understand, could you please repeat?';
   }
+  // Phase 10: High-Impact Vocabulary Combinations
+  if (tokenSet.has('fire') && tokenSet.has('help')) {
+    return 'There is a fire! Please help immediately!';
+  }
+  if (tokenSet.has('police') && (tokenSet.has('call') || tokenSet.has('help'))) {
+    return 'Please call the police immediately.';
+  }
+  if (tokenSet.has('sick') && tokenSet.has('medicine')) {
+    return 'I am sick, I need my medicine please.';
+  }
+  if (tokenSet.has('home') && (tokenSet.has('please') || tokenSet.has('need'))) {
+    return 'Please take me home.';
+  }
+  if (tokenSet.has('toilet') && tokenSet.has('where')) {
+    return 'Where is the nearest toilet?';
+  }
+  if (tokenSet.has('danger') && tokenSet.has('help')) {
+    return 'There is danger! Please help me!';
+  }
+  if (tokenSet.has('money') && tokenSet.has('need')) {
+    return 'I need some money, please.';
+  }
+  if (tokenSet.has('drink') && tokenSet.has('water')) {
+    return 'I need some drinking water, please.';
+  }
+  if (tokenSet.has('school') && tokenSet.has('where')) {
+    return 'Where is the nearest school?';
+  }
+  if (tokenSet.has('eat') && tokenSet.has('hungry')) {
+    return 'I am hungry and need to eat.';
+  }
 
   // General token reconstructor
   let subject = 'I';

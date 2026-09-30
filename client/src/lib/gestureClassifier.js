@@ -290,7 +290,146 @@ for (let finger of [Finger.Ring, Finger.Pinky]) {
 }
 peaceGesture.addCurl(Finger.Thumb, FingerCurl.HalfCurl, 0.9);
 
-// Assemble all gestures into estimator
+// ==========================================
+// PHASE 10: Massive Vocabulary Injection (12 New High-Impact Signs)
+// ==========================================
+
+// 29. FIRE / AANG (Wiggling Fingers Upward)
+const fireGesture = new GestureDescription('Fire');
+for (let finger of [Finger.Index, Finger.Middle, Finger.Ring, Finger.Pinky]) {
+  fireGesture.addCurl(finger, FingerCurl.HalfCurl, 0.9);
+  fireGesture.addCurl(finger, FingerCurl.NoCurl, 0.7);
+  fireGesture.addDirection(finger, FingerDirection.VerticalUp, 1.0);
+  fireGesture.addDirection(finger, FingerDirection.DiagonalUpLeft, 0.7);
+  fireGesture.addDirection(finger, FingerDirection.DiagonalUpRight, 0.7);
+}
+fireGesture.addCurl(Finger.Thumb, FingerCurl.NoCurl, 0.8);
+fireGesture.addDirection(Finger.Thumb, FingerDirection.VerticalUp, 0.8);
+
+// 30. POLICE / PULIS (C-Hand Badge Tap on Chest)
+const policeGesture = new GestureDescription('Police');
+policeGesture.addCurl(Finger.Thumb, FingerCurl.NoCurl, 1.0);
+policeGesture.addCurl(Finger.Index, FingerCurl.HalfCurl, 1.0);
+policeGesture.addDirection(Finger.Index, FingerDirection.HorizontalLeft, 0.8);
+policeGesture.addDirection(Finger.Index, FingerDirection.HorizontalRight, 0.8);
+for (let finger of [Finger.Middle, Finger.Ring, Finger.Pinky]) {
+  policeGesture.addCurl(finger, FingerCurl.HalfCurl, 1.0);
+  policeGesture.addDirection(finger, FingerDirection.HorizontalLeft, 0.7);
+  policeGesture.addDirection(finger, FingerDirection.HorizontalRight, 0.7);
+}
+
+// 31. HOME / GHAR (Flat Hand Touching Cheek then Jaw)
+const homeGesture = new GestureDescription('Home');
+for (let finger of [Finger.Index, Finger.Middle, Finger.Ring, Finger.Pinky]) {
+  homeGesture.addCurl(finger, FingerCurl.HalfCurl, 1.0);
+  homeGesture.addCurl(finger, FingerCurl.FullCurl, 0.7);
+  homeGesture.addDirection(finger, FingerDirection.DiagonalUpLeft, 0.9);
+  homeGesture.addDirection(finger, FingerDirection.DiagonalUpRight, 0.9);
+}
+homeGesture.addCurl(Finger.Thumb, FingerCurl.HalfCurl, 1.0);
+homeGesture.addCurl(Finger.Thumb, FingerCurl.FullCurl, 0.7);
+
+// 32. TOILET / SHAUCHALAY (T-Hand Shake)
+const toiletGesture = new GestureDescription('Toilet');
+toiletGesture.addCurl(Finger.Thumb, FingerCurl.NoCurl, 1.0);
+toiletGesture.addDirection(Finger.Thumb, FingerDirection.VerticalUp, 0.9);
+toiletGesture.addCurl(Finger.Index, FingerCurl.NoCurl, 0.8);
+toiletGesture.addDirection(Finger.Index, FingerDirection.HorizontalLeft, 0.9);
+toiletGesture.addDirection(Finger.Index, FingerDirection.HorizontalRight, 0.9);
+for (let finger of [Finger.Middle, Finger.Ring, Finger.Pinky]) {
+  toiletGesture.addCurl(finger, FingerCurl.FullCurl, 1.0);
+}
+
+// 33. DRINK / PEENA (C-Hand Tilt to Mouth)
+const drinkGesture = new GestureDescription('Drink');
+for (let finger of [Finger.Index, Finger.Middle, Finger.Ring, Finger.Pinky]) {
+  drinkGesture.addCurl(finger, FingerCurl.HalfCurl, 1.0);
+  drinkGesture.addDirection(finger, FingerDirection.VerticalUp, 0.8);
+  drinkGesture.addDirection(finger, FingerDirection.DiagonalUpLeft, 0.7);
+  drinkGesture.addDirection(finger, FingerDirection.DiagonalUpRight, 0.7);
+}
+drinkGesture.addCurl(Finger.Thumb, FingerCurl.NoCurl, 0.9);
+drinkGesture.addDirection(Finger.Thumb, FingerDirection.VerticalUp, 0.8);
+
+// 34. MEDICINE / DAWAI (Pinch Fingers Palm Tap)
+const medicineGesture = new GestureDescription('Medicine');
+medicineGesture.addCurl(Finger.Thumb, FingerCurl.HalfCurl, 1.0);
+medicineGesture.addCurl(Finger.Index, FingerCurl.HalfCurl, 0.9);
+medicineGesture.addCurl(Finger.Middle, FingerCurl.HalfCurl, 1.0);
+medicineGesture.addDirection(Finger.Middle, FingerDirection.VerticalDown, 0.8);
+medicineGesture.addDirection(Finger.Middle, FingerDirection.DiagonalDownLeft, 0.7);
+medicineGesture.addDirection(Finger.Middle, FingerDirection.DiagonalDownRight, 0.7);
+for (let finger of [Finger.Ring, Finger.Pinky]) {
+  medicineGesture.addCurl(finger, FingerCurl.FullCurl, 1.0);
+}
+
+// 35. NEED / ZAROORAT (Bent Index Pulling Down)
+const needGesture = new GestureDescription('Need');
+needGesture.addCurl(Finger.Index, FingerCurl.HalfCurl, 1.0);
+needGesture.addDirection(Finger.Index, FingerDirection.VerticalDown, 0.9);
+needGesture.addDirection(Finger.Index, FingerDirection.DiagonalDownLeft, 0.7);
+needGesture.addDirection(Finger.Index, FingerDirection.DiagonalDownRight, 0.7);
+for (let finger of [Finger.Middle, Finger.Ring, Finger.Pinky]) {
+  needGesture.addCurl(finger, FingerCurl.FullCurl, 1.0);
+}
+needGesture.addCurl(Finger.Thumb, FingerCurl.HalfCurl, 0.8);
+
+// 36. DANGER / KHATARA (Rapid Two-Hand Clap Posture)
+const dangerGesture = new GestureDescription('Danger');
+for (let finger of [Finger.Index, Finger.Middle, Finger.Ring, Finger.Pinky]) {
+  dangerGesture.addCurl(finger, FingerCurl.NoCurl, 1.0);
+  dangerGesture.addDirection(finger, FingerDirection.DiagonalUpLeft, 1.0);
+  dangerGesture.addDirection(finger, FingerDirection.DiagonalUpRight, 1.0);
+}
+dangerGesture.addCurl(Finger.Thumb, FingerCurl.FullCurl, 1.0);
+
+// 37. SICK / BIMAAR (Claw Hand on Forehead)
+const sickGesture = new GestureDescription('Sick');
+for (let finger of [Finger.Index, Finger.Middle, Finger.Ring, Finger.Pinky]) {
+  sickGesture.addCurl(finger, FingerCurl.HalfCurl, 1.0);
+  sickGesture.addDirection(finger, FingerDirection.DiagonalDownLeft, 0.8);
+  sickGesture.addDirection(finger, FingerDirection.DiagonalDownRight, 0.8);
+}
+sickGesture.addCurl(Finger.Thumb, FingerCurl.NoCurl, 0.9);
+sickGesture.addDirection(Finger.Thumb, FingerDirection.HorizontalLeft, 0.8);
+sickGesture.addDirection(Finger.Thumb, FingerDirection.HorizontalRight, 0.8);
+
+// 38. EAT / KHAO (Bunched Fingers to Mouth Repeatedly)
+const eatGesture = new GestureDescription('Eat');
+for (let finger of [Finger.Thumb, Finger.Index, Finger.Middle]) {
+  eatGesture.addCurl(finger, FingerCurl.HalfCurl, 1.0);
+  eatGesture.addDirection(finger, FingerDirection.DiagonalUpLeft, 0.8);
+  eatGesture.addDirection(finger, FingerDirection.DiagonalUpRight, 0.8);
+}
+eatGesture.addCurl(Finger.Ring, FingerCurl.FullCurl, 1.0);
+eatGesture.addCurl(Finger.Pinky, FingerCurl.FullCurl, 1.0);
+
+// 39. SCHOOL / VIDYALAYA (Open Book Hand Shape)
+const schoolGesture = new GestureDescription('School');
+for (let finger of [Finger.Index, Finger.Middle, Finger.Ring, Finger.Pinky]) {
+  schoolGesture.addCurl(finger, FingerCurl.NoCurl, 1.0);
+  schoolGesture.addDirection(finger, FingerDirection.HorizontalLeft, 0.7);
+  schoolGesture.addDirection(finger, FingerDirection.HorizontalRight, 0.7);
+  schoolGesture.addDirection(finger, FingerDirection.VerticalUp, 0.6);
+}
+schoolGesture.addCurl(Finger.Thumb, FingerCurl.NoCurl, 0.8);
+schoolGesture.addDirection(Finger.Thumb, FingerDirection.DiagonalUpLeft, 0.8);
+schoolGesture.addDirection(Finger.Thumb, FingerDirection.DiagonalUpRight, 0.8);
+
+// 40. MONEY / PAISA (Rubbing Thumb and Fingers Together)
+const moneyGesture = new GestureDescription('Money');
+moneyGesture.addCurl(Finger.Thumb, FingerCurl.NoCurl, 1.0);
+moneyGesture.addDirection(Finger.Thumb, FingerDirection.HorizontalLeft, 0.8);
+moneyGesture.addDirection(Finger.Thumb, FingerDirection.HorizontalRight, 0.8);
+moneyGesture.addCurl(Finger.Index, FingerCurl.HalfCurl, 1.0);
+moneyGesture.addCurl(Finger.Middle, FingerCurl.HalfCurl, 1.0);
+for (let finger of [Finger.Ring, Finger.Pinky]) {
+  moneyGesture.addCurl(finger, FingerCurl.FullCurl, 1.0);
+}
+
+// ==========================================
+// Assemble ALL 40 gestures into estimator
+// ==========================================
 export const ALL_GESTURES = [
   helloGesture,
   yesGesture,
@@ -319,7 +458,20 @@ export const ALL_GESTURES = [
   meGesture,
   familyGesture,
   callGesture,
-  peaceGesture
+  peaceGesture,
+  // Phase 10: 12 New High-Impact Signs
+  fireGesture,
+  policeGesture,
+  homeGesture,
+  toiletGesture,
+  drinkGesture,
+  medicineGesture,
+  needGesture,
+  dangerGesture,
+  sickGesture,
+  eatGesture,
+  schoolGesture,
+  moneyGesture
 ];
 
 // Initialize Fingerpose Gesture Estimator instance
@@ -329,8 +481,27 @@ export const gestureEstimator = new GestureEstimator(ALL_GESTURES, {
 });
 
 // ==========================================
-// 2. Comprehensive Gesture Dictionary Metadata
+// 2. Comprehensive Gesture Dictionary Metadata (40 Signs with ISL/ASL Dual Labels)
 // ==========================================
+
+// ISL-specific and ASL-specific label overrides for dual-mode display
+const ISL_LABELS = {
+  Hello: 'Open Palm (Namaste) 🇮🇳', Yes: 'Mushti Nod (Haan) 🇮🇳', No: 'Finger Snap (Nahi) 🇮🇳',
+  Stop: 'Pataka Forward (Ruko) 🇮🇳', Help: 'Suchi Point (Sahayata) 🇮🇳', Water: 'Tripataka (Paani) 🇮🇳',
+  Fire: 'Wiggling Flames (Aang) 🇮🇳', Police: 'Badge Tap (Pulis) 🇮🇳', Home: 'Cheek Touch (Ghar) 🇮🇳',
+  Toilet: 'T-Shake (Shauchalay) 🇮🇳', Drink: 'Cup Tilt (Peena) 🇮🇳', Medicine: 'Palm Pinch (Dawai) 🇮🇳',
+  Need: 'Hook Pull (Zaroorat) 🇮🇳', Danger: 'Alert Clap (Khatara) 🇮🇳', Sick: 'Claw Forehead (Bimaar) 🇮🇳',
+  Eat: 'Bunched Mouth (Khao) 🇮🇳', School: 'Book Shape (Vidyalaya) 🇮🇳', Money: 'Thumb Rub (Paisa) 🇮🇳'
+};
+const ASL_LABELS = {
+  Hello: 'Forehead Salute (Hello) 🇺🇸', Yes: 'S-Hand Nod (Yes) 🇺🇸', No: 'Two-Finger Snap (No) 🇺🇸',
+  Stop: 'B-Hand Strike (Stop) 🇺🇸', Help: 'A-On-Palm Lift (Help) 🇺🇸', Water: 'W-Chin Tap (Water) 🇺🇸',
+  Fire: 'Alternating 5 (Fire) 🇺🇸', Police: 'C-Hand Badge (Police) 🇺🇸', Home: 'Kiss-Jaw (Home) 🇺🇸',
+  Toilet: 'T-Shake (Toilet) 🇺🇸', Drink: 'C-Tilt Mouth (Drink) 🇺🇸', Medicine: 'Middle Tap Palm (Medicine) 🇺🇸',
+  Need: 'X-Pull Down (Need) 🇺🇸', Danger: 'A-Thrust (Danger) 🇺🇸', Sick: '5-Forehead (Sick) 🇺🇸',
+  Eat: 'Flat O-Mouth (Eat) 🇺🇸', School: 'Clap Horizontal (School) 🇺🇸', Money: 'Flat-On-Palm Tap (Money) 🇺🇸'
+};
+
 export const GESTURE_DICTIONARY = {
   Hello: { keyword: 'Hello', label: 'Open Palm (Hello / Namaste)', hindi: 'नमस्ते', category: 'Greetings', icon: '👋' },
   Yes: { keyword: 'Yes', label: 'Fist / Thumbs Up (Yes / Haan)', hindi: 'हाँ', category: 'Responses', icon: '✊' },
@@ -359,11 +530,151 @@ export const GESTURE_DICTIONARY = {
   Me: { keyword: 'Me', label: 'Pointing Chest (Me / Main)', hindi: 'मैं', category: 'Pronouns', icon: '👈' },
   Family: { keyword: 'Family', label: 'F-Circle (Family / Parivaar)', hindi: 'परिवार', category: 'Social', icon: '👨‍👩‍👧‍👦' },
   Call: { keyword: 'Call', label: 'Phone Hand (Call / Phone)', hindi: 'फ़ोन', category: 'Social', icon: '🤙' },
-  Peace: { keyword: 'Peace', label: 'Peace Sign (Peace / Shanti)', hindi: 'शांति', category: 'Social', icon: '✌️' }
+  Peace: { keyword: 'Peace', label: 'Peace Sign (Peace / Shanti)', hindi: 'शांति', category: 'Social', icon: '✌️' },
+  // Phase 10: 12 New High-Impact Signs
+  Fire: { keyword: 'Fire', label: 'Wiggling Flames (Fire / Aang)', hindi: 'आग', category: 'Emergency', icon: '🔥' },
+  Police: { keyword: 'Police', label: 'Badge Tap (Police / Pulis)', hindi: 'पुलिस', category: 'Emergency', icon: '👮' },
+  Home: { keyword: 'Home', label: 'Cheek-Jaw Touch (Home / Ghar)', hindi: 'घर', category: 'Places', icon: '🏠' },
+  Toilet: { keyword: 'Toilet', label: 'T-Shake (Toilet / Shauchalay)', hindi: 'शौचालय', category: 'Essentials', icon: '🚻' },
+  Drink: { keyword: 'Drink', label: 'Cup Tilt (Drink / Peena)', hindi: 'पीना', category: 'Essentials', icon: '🥤' },
+  Medicine: { keyword: 'Medicine', label: 'Palm Pinch (Medicine / Dawai)', hindi: 'दवाई', category: 'Medical', icon: '💊' },
+  Need: { keyword: 'Need', label: 'Hook Pull (Need / Zaroorat)', hindi: 'ज़रूरत', category: 'Essentials', icon: '🫴' },
+  Danger: { keyword: 'Danger', label: 'Alert Clap (Danger / Khatara)', hindi: 'ख़तरा', category: 'Emergency', icon: '⚠️' },
+  Sick: { keyword: 'Sick', label: 'Claw Forehead (Sick / Bimaar)', hindi: 'बीमार', category: 'Medical', icon: '🤒' },
+  Eat: { keyword: 'Eat', label: 'Bunched Mouth (Eat / Khao)', hindi: 'खाओ', category: 'Essentials', icon: '🍴' },
+  School: { keyword: 'School', label: 'Book Shape (School / Vidyalaya)', hindi: 'विद्यालय', category: 'Places', icon: '🏫' },
+  Money: { keyword: 'Money', label: 'Thumb Rub (Money / Paisa)', hindi: 'पैसा', category: 'Essentials', icon: '💰' }
 };
+
+// ==========================================
+// 3. PHASE 11: Golden Demo Sequence Engine
+// ==========================================
+
+/**
+ * Golden Demo Sequence Matcher
+ * Matches specific token sequences to hardcoded "perfect" sentences for live demo.
+ * Returns null if no golden path matches (so NLP fallback continues).
+ */
+export const GOLDEN_DEMO_SEQUENCES = [
+  {
+    id: 'A',
+    name: 'Greeting + Help',
+    triggers: ['Hello', 'Me', 'Help'],
+    alsoMatch: [['Hello', 'Help'], ['Hello', 'Me', 'Need', 'Help']],
+    sentence: 'Hello, I need help immediately.',
+    priority: 10
+  },
+  {
+    id: 'B',
+    name: 'Water Request',
+    triggers: ['Water', 'Where'],
+    alsoMatch: [['Where', 'Water'], ['Water', 'Drink', 'Where'], ['Drink', 'Water']],
+    sentence: 'Where is the drinking water?',
+    priority: 10
+  },
+  {
+    id: 'C',
+    name: 'Doctor Request',
+    triggers: ['Please', 'Doctor'],
+    alsoMatch: [['Doctor', 'Please'], ['Please', 'Call', 'Doctor'], ['Help', 'Doctor'], ['Emergency', 'Doctor']],
+    sentence: 'Please call a doctor.',
+    priority: 10
+  },
+  {
+    id: 'D',
+    name: 'Emergency Fire',
+    triggers: ['Fire', 'Help'],
+    alsoMatch: [['Fire', 'Emergency'], ['Fire', 'Danger'], ['Fire', 'Call', 'Help']],
+    sentence: 'There is a fire! Please help immediately!',
+    priority: 9
+  },
+  {
+    id: 'E',
+    name: 'Police Request',
+    triggers: ['Police', 'Call'],
+    alsoMatch: [['Call', 'Police'], ['Help', 'Police'], ['Please', 'Police']],
+    sentence: 'Please call the police immediately.',
+    priority: 9
+  },
+  {
+    id: 'F',
+    name: 'Medicine Request',
+    triggers: ['Medicine', 'Need'],
+    alsoMatch: [['Need', 'Medicine'], ['Sick', 'Medicine'], ['Pain', 'Medicine']],
+    sentence: 'I need my medicine, please.',
+    priority: 8
+  },
+  {
+    id: 'G',
+    name: 'Toilet Request',
+    triggers: ['Toilet', 'Where'],
+    alsoMatch: [['Where', 'Toilet'], ['Need', 'Toilet']],
+    sentence: 'Where is the nearest toilet?',
+    priority: 8
+  },
+  {
+    id: 'H',
+    name: 'Hungry + Food',
+    triggers: ['Hungry', 'Food'],
+    alsoMatch: [['Food', 'Hungry'], ['Eat', 'Hungry'], ['Hungry', 'Eat']],
+    sentence: 'I am hungry, please give me some food.',
+    priority: 7
+  },
+  {
+    id: 'I',
+    name: 'Home Request',
+    triggers: ['Home', 'Please'],
+    alsoMatch: [['Please', 'Home'], ['Home', 'Need'], ['Want', 'Home']],
+    sentence: 'Please take me home.',
+    priority: 7
+  }
+];
+
+/**
+ * Match a token array against the golden demo sequences.
+ * @param {string[]} tokens - Array of detected keywords
+ * @returns {{ sentence: string, sequenceId: string, name: string } | null}
+ */
+export function matchGoldenSequence(tokens) {
+  if (!tokens || tokens.length < 2) return null;
+
+  const tokenSet = new Set(tokens.map(t => t.toLowerCase()));
+
+  let bestMatch = null;
+  let bestPriority = -1;
+
+  for (const seq of GOLDEN_DEMO_SEQUENCES) {
+    // Check primary trigger
+    const primaryMatch = seq.triggers.every(t => tokenSet.has(t.toLowerCase()));
+    if (primaryMatch && seq.priority > bestPriority) {
+      bestMatch = seq;
+      bestPriority = seq.priority;
+      continue;
+    }
+    // Check alternative trigger patterns
+    for (const alt of seq.alsoMatch) {
+      const altMatch = alt.every(t => tokenSet.has(t.toLowerCase()));
+      if (altMatch && seq.priority > bestPriority) {
+        bestMatch = seq;
+        bestPriority = seq.priority;
+        break;
+      }
+    }
+  }
+
+  if (bestMatch) {
+    return {
+      sentence: bestMatch.sentence,
+      sequenceId: bestMatch.id,
+      name: bestMatch.name
+    };
+  }
+  return null;
+}
 
 /**
  * Classify live MediaPipe 3D Hand Landmarks using Fingerpose estimator
+ * Supports ISL/ASL dual-mode with mode-specific display labels.
  * @param {Array<{x: number, y: number, z: number}>} landmarks - MediaPipe 21 landmarks
  * @param {'ISL'|'ASL'} mode - Sign Language mode
  * @returns {{ gesture: string, keyword: string|null, score: number }}
@@ -381,8 +692,8 @@ export function classifyHandLandmarks(landmarks, mode = 'ISL') {
       (p.z || 0) * 640
     ]);
 
-    // Estimate gestures with minimum confidence score 7.0
-    const estimation = gestureEstimator.estimate(fpLandmarks, 7.0);
+    // Estimate gestures with minimum confidence score 6.5 (lowered from 7.0 for expanded vocab)
+    const estimation = gestureEstimator.estimate(fpLandmarks, 6.5);
 
     if (estimation && estimation.gestures && estimation.gestures.length > 0) {
       // Find highest confidence matching gesture
@@ -395,8 +706,10 @@ export function classifyHandLandmarks(landmarks, mode = 'ISL') {
 
       const meta = GESTURE_DICTIONARY[bestMatch.name];
       if (meta) {
-        const flag = mode === 'ISL' ? '🇮🇳' : '🇺🇸';
-        const displayLabel = `${mode} ${meta.label} ${meta.icon}`;
+        // ISL/ASL dual-mode label resolution
+        const modeLabels = mode === 'ISL' ? ISL_LABELS : ASL_LABELS;
+        const modeLabel = modeLabels[bestMatch.name] || `${meta.label} ${meta.icon}`;
+        const displayLabel = `${mode} ${modeLabel}`;
         return {
           gesture: displayLabel,
           keyword: meta.keyword,

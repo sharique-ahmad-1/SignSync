@@ -607,6 +607,245 @@ export const AVATAR_VOCABULARY = {
     },
     cycle: { joint: 'both', axis: 'y', freq: 3, amp: 0.2 },
     islStandard: true
+  },
+
+  // ==========================================
+  // PHASE 10: 12 New High-Impact Avatar Vocabulary
+  // ==========================================
+
+  fire: {
+    gloss: 'FIRE',
+    label: 'Fire / Aang',
+    hindi: 'आग',
+    category: 'Emergency',
+    handShape: 'Wiggling Fingers Upward',
+    motionType: 'wave_cycle',
+    durationMs: 2400,
+    videoUrl: 'https://media.giphy.com/media/3o7TKSjRrfIPjeiVyM/giphy.gif',
+    description: 'Both hands with fingers spread, wiggling upward to mimic rising flames.',
+    bonePose: {
+      rightShoulder: [1.0, 0.1, 0.55],
+      rightElbow: [0, -0.5, 0.4],
+      leftShoulder: [1.0, -0.1, 0.55],
+      leftElbow: [0, -0.5, -0.4],
+      head: [0.1, 0, 0]
+    },
+    cycle: { joint: 'both', axis: 'y', freq: 6, amp: 0.3 },
+    islStandard: true
+  },
+  police: {
+    gloss: 'POLICE',
+    label: 'Police / Pulis',
+    hindi: 'पुलिस',
+    category: 'Emergency',
+    handShape: 'C-Hand Badge Tap',
+    motionType: 'chest_rub_cycle',
+    durationMs: 2500,
+    videoUrl: 'https://media.giphy.com/media/26gsjCZpPolPr3sBy/giphy.gif',
+    description: 'C-shape hand taps twice on the upper left chest area mimicking a police badge.',
+    bonePose: {
+      rightShoulder: [0.7, -0.3, 0.4],
+      rightElbow: [0, -0.6, 0.35],
+      leftShoulder: [0.3, -0.1, 0.2],
+      head: [0.05, 0, 0]
+    },
+    cycle: { joint: 'rightShoulder', axis: 'x', freq: 3, amp: 0.15 },
+    islStandard: true
+  },
+  home: {
+    gloss: 'HOME',
+    label: 'Home / Ghar',
+    hindi: 'घर',
+    category: 'Places',
+    handShape: 'Flat O-Cheek-Jaw',
+    motionType: 'chin_touch_cycle',
+    durationMs: 2400,
+    videoUrl: 'https://media.giphy.com/media/dzaUX7CAG0Ihi/giphy.gif',
+    description: 'Fingertips bunched touch the cheek, then move down to the jawline.',
+    bonePose: {
+      rightShoulder: [1.1, 0.1, 0.5],
+      rightElbow: [0, -0.8, 0.5],
+      leftShoulder: [-0.2, 0, 0],
+      head: [0.1, 0.1, 0]
+    },
+    cycle: { joint: 'rightShoulder', axis: 'y', freq: 2, amp: 0.15 },
+    islStandard: true
+  },
+  toilet: {
+    gloss: 'TOILET',
+    label: 'Toilet / Shauchalay',
+    hindi: 'शौचालय',
+    category: 'Essentials',
+    handShape: 'T-Hand Shake',
+    motionType: 'wave_cycle',
+    durationMs: 2300,
+    videoUrl: 'https://media.giphy.com/media/l41lI4bYmcsPJX9Go/giphy.gif',
+    description: 'Thumb placed between index and middle finger (T-shape), shaken side to side.',
+    bonePose: {
+      rightShoulder: [0.75, 0.15, 0.45],
+      rightElbow: [0, -0.5, 0.3],
+      leftShoulder: [-0.2, 0, 0],
+      head: [0, 0, 0]
+    },
+    cycle: { joint: 'rightShoulder', axis: 'z', freq: 4, amp: 0.2 },
+    islStandard: true
+  },
+  drink: {
+    gloss: 'DRINK',
+    label: 'Drink / Peena',
+    hindi: 'पीना',
+    category: 'Essentials',
+    handShape: 'C-Tilt to Mouth',
+    motionType: 'chin_touch_cycle',
+    durationMs: 2400,
+    videoUrl: 'https://media.giphy.com/media/xT9IgG50Fb7Mi0prBC/giphy.gif',
+    description: 'C-shaped hand tilted toward mouth as if drinking from a cup.',
+    bonePose: {
+      rightShoulder: [1.15, 0.1, 0.55],
+      rightElbow: [0, -0.85, 0.5],
+      leftShoulder: [-0.2, 0, 0],
+      head: [0.15, 0, 0]
+    },
+    cycle: { joint: 'rightShoulder', axis: 'x', freq: 3, amp: 0.2 },
+    islStandard: true
+  },
+  medicine: {
+    gloss: 'MEDICINE',
+    label: 'Medicine / Dawai',
+    hindi: 'दवाई',
+    category: 'Medical',
+    handShape: 'Middle Finger Tap Palm',
+    motionType: 'pulse_tap_cycle',
+    durationMs: 2500,
+    videoUrl: 'https://media.giphy.com/media/3o7TKnLpD9wAkyOIEw/giphy.gif',
+    description: 'Middle finger of dominant hand taps repeatedly on the open palm of non-dominant hand.',
+    bonePose: {
+      rightShoulder: [0.8, 0.2, 0.4],
+      rightElbow: [0, -0.65, 0.35],
+      leftShoulder: [0.5, -0.15, 0.35],
+      leftElbow: [0, -0.45, -0.3],
+      head: [0.1, 0, 0]
+    },
+    cycle: { joint: 'rightShoulder', axis: 'x', freq: 4, amp: 0.15 },
+    islStandard: true
+  },
+  need: {
+    gloss: 'NEED',
+    label: 'Need / Zaroorat',
+    hindi: 'ज़रूरत',
+    category: 'Essentials',
+    handShape: 'X-Hand Pull Down',
+    motionType: 'fist_nod_cycle',
+    durationMs: 2200,
+    videoUrl: 'https://media.giphy.com/media/3o7TKSjRrfIPjeiVyM/giphy.gif',
+    description: 'Bent index finger (X-hand) pulled downward in a hooking motion.',
+    bonePose: {
+      rightShoulder: [0.7, 0.1, 0.4],
+      rightElbow: [0, -0.5, 0.3],
+      leftShoulder: [-0.2, 0, 0],
+      head: [0.15, 0, 0]
+    },
+    cycle: { joint: 'rightShoulder', axis: 'x', freq: 3, amp: 0.2 },
+    islStandard: true
+  },
+  danger: {
+    gloss: 'DANGER',
+    label: 'Danger / Khatara',
+    hindi: 'ख़तरा',
+    category: 'Emergency',
+    handShape: 'A-Hand Thrust',
+    motionType: 'wave_cycle',
+    durationMs: 2300,
+    videoUrl: 'https://media.giphy.com/media/3o7TKSjRrfIPjeiVyM/giphy.gif',
+    description: 'Closed fist thrust forward alternating both hands in warning motion.',
+    bonePose: {
+      rightShoulder: [0.9, 0.1, 0.5],
+      rightElbow: [0, -0.4, 0.3],
+      leftShoulder: [0.9, -0.1, 0.5],
+      leftElbow: [0, -0.4, -0.3],
+      head: [0.1, 0, 0]
+    },
+    cycle: { joint: 'both', axis: 'x', freq: 5, amp: 0.25 },
+    islStandard: true
+  },
+  sick: {
+    gloss: 'SICK',
+    label: 'Sick / Bimaar',
+    hindi: 'बीमार',
+    category: 'Medical',
+    handShape: '5-Claw Forehead',
+    motionType: 'chin_touch_cycle',
+    durationMs: 2400,
+    videoUrl: 'https://media.giphy.com/media/3o7TKnLpD9wAkyOIEw/giphy.gif',
+    description: 'Open 5-hand with fingers slightly curled placed on forehead, other hand on stomach.',
+    bonePose: {
+      rightShoulder: [1.2, 0.1, 0.6],
+      rightElbow: [0, -0.9, 0.5],
+      leftShoulder: [0.5, -0.1, 0.3],
+      leftElbow: [0, -0.4, -0.2],
+      head: [0.2, 0, 0]
+    },
+    cycle: { joint: 'rightShoulder', axis: 'x', freq: 2, amp: 0.1 },
+    islStandard: true
+  },
+  eat: {
+    gloss: 'EAT',
+    label: 'Eat / Khao',
+    hindi: 'खाओ',
+    category: 'Essentials',
+    handShape: 'Flat O to Mouth',
+    motionType: 'chin_touch_cycle',
+    durationMs: 2400,
+    videoUrl: 'https://media.giphy.com/media/3o7TKnLpD9wAkyOIEw/giphy.gif',
+    description: 'Flattened O-hand moves repeatedly toward the mouth.',
+    bonePose: {
+      rightShoulder: [1.2, 0.05, 0.5],
+      rightElbow: [0, -0.85, 0.5],
+      leftShoulder: [-0.2, 0, 0],
+      head: [0.1, 0, 0]
+    },
+    cycle: { joint: 'rightShoulder', axis: 'x', freq: 4, amp: 0.18 },
+    islStandard: true
+  },
+  school: {
+    gloss: 'SCHOOL',
+    label: 'School / Vidyalaya',
+    hindi: 'विद्यालय',
+    category: 'Places',
+    handShape: 'Clap Horizontal',
+    motionType: 'elevate_two_hands',
+    durationMs: 2500,
+    videoUrl: 'https://media.giphy.com/media/26FLdm964upqWP3lu/giphy.gif',
+    description: 'Dominant hand claps down on non-dominant flat palm twice.',
+    bonePose: {
+      rightShoulder: [0.8, 0.2, 0.5],
+      rightElbow: [0, -0.5, 0.35],
+      leftShoulder: [0.5, -0.2, 0.4],
+      leftElbow: [0, -0.4, -0.3],
+      head: [0.05, 0, 0]
+    },
+    cycle: { joint: 'rightShoulder', axis: 'y', freq: 4, amp: 0.2 },
+    islStandard: true
+  },
+  money: {
+    gloss: 'MONEY',
+    label: 'Money / Paisa',
+    hindi: 'पैसा',
+    category: 'Essentials',
+    handShape: 'Flat Hand Palm Tap',
+    motionType: 'chin_touch_cycle',
+    durationMs: 2300,
+    videoUrl: 'https://media.giphy.com/media/xT9IgG50Fb7Mi0prBC/giphy.gif',
+    description: 'Back of flat O-hand taps the open palm of non-dominant hand twice.',
+    bonePose: {
+      rightShoulder: [0.7, 0.15, 0.4],
+      rightElbow: [0, -0.55, 0.35],
+      leftShoulder: [0.5, -0.15, 0.35],
+      leftElbow: [0, -0.45, -0.3],
+      head: [0, 0, 0]
+    },
+    cycle: { joint: 'rightShoulder', axis: 'x', freq: 4, amp: 0.15 },
+    islStandard: true
   }
 };
 

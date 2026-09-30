@@ -23,7 +23,7 @@ import { CardContainer, CardBody, CardItem } from './ui/3d-card';
 import { LottieDisplay } from './ui/lottie-display';
 import { handTrackerLottie, aiProcessingLottie } from '../lib/lottieData';
 import { formulateGrammarSentence, speakFormulatedSentence, subscribeModelProgress, loadSmolLMModel } from '../lib/smolLM';
-import { classifyHandLandmarks, GESTURE_DICTIONARY } from '../lib/gestureClassifier';
+import { classifyHandLandmarks, GESTURE_DICTIONARY, matchGoldenSequence } from '../lib/gestureClassifier';
 import { cn } from '../lib/utils';
 
 const HAND_CONNECTIONS = [
@@ -255,6 +255,14 @@ export function DeafView({
   // Instant human sentence builder for zero-latency UI update (Task 1 & Task 3)
   const buildImmediateSentence = (tokens) => {
     if (!tokens || tokens.length === 0) return '';
+
+    // Phase 11: Check Golden Demo Sequences FIRST (highest priority)
+    const goldenMatch = matchGoldenSequence(tokens);
+    if (goldenMatch) {
+      console.log(`[DeafView] 🏆 Golden Demo Sequence "${goldenMatch.name}" (${goldenMatch.sequenceId}) matched!`);
+      return goldenMatch.sentence;
+    }
+
     const last = tokens[tokens.length - 1];
 
     if (tokens.length === 1) {
@@ -286,6 +294,20 @@ export function DeafView({
         case 'bad': return 'That is not good.';
         case 'you': return 'Can you help?';
         case 'me': return 'I am here.';
+        // Phase 10: 12 New High-Impact Signs
+        case 'fire': return 'There is a fire! Please help!';
+        case 'police': return 'Please call the police!';
+        case 'home': return 'I want to go home.';
+        case 'toilet': return 'I need to use the toilet.';
+        case 'drink': return 'I need something to drink.';
+        case 'medicine': return 'I need my medicine.';
+        case 'need': return 'I need assistance.';
+        case 'danger': return 'There is danger nearby!';
+        case 'sick': return 'I am feeling sick.';
+        case 'eat': return 'I need to eat something.';
+        case 'school': return 'I need to go to school.';
+        case 'money': return 'I need some money.';
+        case 'peace': return 'Peace be with you.';
         default: return last;
       }
     }
@@ -314,6 +336,22 @@ export function DeafView({
     }
     if (lower.includes('thank') && lower.includes('you')) {
       return 'Thank you very much for your assistance.';
+    }
+    // Phase 10: New multi-token combos
+    if (lower.includes('fire') && lower.includes('help')) {
+      return 'There is a fire! Please help immediately!';
+    }
+    if (lower.includes('police') && lower.includes('call')) {
+      return 'Please call the police immediately.';
+    }
+    if (lower.includes('sick') && lower.includes('medicine')) {
+      return 'I am sick, I need my medicine please.';
+    }
+    if (lower.includes('home') && lower.includes('please')) {
+      return 'Please take me home.';
+    }
+    if (lower.includes('toilet') && lower.includes('where')) {
+      return 'Where is the nearest toilet?';
     }
 
     return tokens.join(' ');
@@ -447,7 +485,20 @@ export function DeafView({
           { kw: 'No', isl: 'ISL Two-Fingers Victory (No / Nahi) ✌️', asl: 'ASL Victory / Two (No) ✌️' },
           { kw: 'Stop', isl: 'ISL Flat Hand Out (Stop / Ruko) ✋', asl: 'ASL Flat Hand (Stop) ✋' },
           { kw: 'Love', isl: 'ISL ILY Hand (I Love You / Pyar) 🤟', asl: 'ASL ILY Sign 🤟' },
-          { kw: 'Where', isl: 'ISL Palms Up (Where / Kahan) ❓', asl: 'ASL Where ❓' }
+          { kw: 'Where', isl: 'ISL Palms Up (Where / Kahan) ❓', asl: 'ASL Where ❓' },
+          // Phase 10: New High-Impact Signs
+          { kw: 'Fire', isl: 'ISL Wiggling Flames (Aang) 🔥', asl: 'ASL Alternating 5 (Fire) 🔥' },
+          { kw: 'Police', isl: 'ISL Badge Tap (Pulis) 👮', asl: 'ASL C-Badge (Police) 👮' },
+          { kw: 'Home', isl: 'ISL Cheek Touch (Ghar) 🏠', asl: 'ASL Kiss-Jaw (Home) 🏠' },
+          { kw: 'Toilet', isl: 'ISL T-Shake (Shauchalay) 🚻', asl: 'ASL T-Shake (Toilet) 🚻' },
+          { kw: 'Drink', isl: 'ISL Cup Tilt (Peena) 🥤', asl: 'ASL C-Tilt Mouth (Drink) 🥤' },
+          { kw: 'Medicine', isl: 'ISL Palm Pinch (Dawai) 💊', asl: 'ASL Middle Tap Palm (Medicine) 💊' },
+          { kw: 'Need', isl: 'ISL Hook Pull (Zaroorat) 🫴', asl: 'ASL X-Pull Down (Need) 🫴' },
+          { kw: 'Danger', isl: 'ISL Alert Clap (Khatara) ⚠️', asl: 'ASL A-Thrust (Danger) ⚠️' },
+          { kw: 'Sick', isl: 'ISL Claw Forehead (Bimaar) 🤒', asl: 'ASL 5-Forehead (Sick) 🤒' },
+          { kw: 'Eat', isl: 'ISL Bunched Mouth (Khao) 🍴', asl: 'ASL Flat O-Mouth (Eat) 🍴' },
+          { kw: 'School', isl: 'ISL Book Shape (Vidyalaya) 🏫', asl: 'ASL Clap Horizontal (School) 🏫' },
+          { kw: 'Money', isl: 'ISL Thumb Rub (Paisa) 💰', asl: 'ASL Flat-On-Palm Tap (Money) 💰' }
         ];
 
         const cycleIdx = Math.floor(time / 4) % simGests.length;
