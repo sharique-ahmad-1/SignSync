@@ -314,7 +314,13 @@ export function DeafView({
 
     const lower = tokens.map(t => t.toLowerCase());
     if (lower.includes('hello') && lower.includes('help')) {
-      return 'Hello, can you please help me?';
+      return 'Hello, I need help immediately.';
+    }
+    if (lower.includes('water') && lower.includes('where')) {
+      return 'Where is the drinking water?';
+    }
+    if (lower.includes('emergency') && lower.includes('doctor')) {
+      return 'Please call a doctor.';
     }
     if (lower.includes('help') && lower.includes('water')) {
       return 'Please help me get some water.';
@@ -326,7 +332,7 @@ export function DeafView({
       return 'Yes, I need help.';
     }
     if (lower.includes('emergency') || lower.includes('doctor')) {
-      return 'Urgent: I need a doctor immediately!';
+      return 'Please call a doctor.';
     }
     if (lower.includes('hungry') && lower.includes('food')) {
       return 'I am hungry, please give me some food.';

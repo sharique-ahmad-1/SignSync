@@ -559,8 +559,14 @@ export const GOLDEN_DEMO_SEQUENCES = [
   {
     id: 'A',
     name: 'Greeting + Help',
-    triggers: ['Hello', 'Me', 'Help'],
-    alsoMatch: [['Hello', 'Help'], ['Hello', 'Me', 'Need', 'Help']],
+    triggers: ['Hello', 'Help'],
+    alsoMatch: [
+      ['Help', 'Hello'], 
+      ['Hello', 'Me', 'Help'], 
+      ['Hello', 'Need', 'Help'], 
+      ['Hello', 'Please', 'Help'],
+      ['Me', 'Help', 'Hello']
+    ],
     sentence: 'Hello, I need help immediately.',
     priority: 10
   },
@@ -568,15 +574,29 @@ export const GOLDEN_DEMO_SEQUENCES = [
     id: 'B',
     name: 'Water Request',
     triggers: ['Water', 'Where'],
-    alsoMatch: [['Where', 'Water'], ['Water', 'Drink', 'Where'], ['Drink', 'Water']],
+    alsoMatch: [
+      ['Where', 'Water'], 
+      ['Water', 'Drink', 'Where'], 
+      ['Drink', 'Where'], 
+      ['Where', 'Drink', 'Water'],
+      ['Water', 'Need', 'Where']
+    ],
     sentence: 'Where is the drinking water?',
     priority: 10
   },
   {
     id: 'C',
     name: 'Doctor Request',
-    triggers: ['Please', 'Doctor'],
-    alsoMatch: [['Doctor', 'Please'], ['Please', 'Call', 'Doctor'], ['Help', 'Doctor'], ['Emergency', 'Doctor']],
+    triggers: ['Emergency', 'Doctor'],
+    alsoMatch: [
+      ['Doctor', 'Emergency'], 
+      ['Please', 'Doctor'], 
+      ['Doctor', 'Please'], 
+      ['Help', 'Doctor'], 
+      ['Emergency', 'Please'],
+      ['Doctor', 'Need'],
+      ['Doctor', 'Help']
+    ],
     sentence: 'Please call a doctor.',
     priority: 10
   },

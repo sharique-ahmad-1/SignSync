@@ -1,5 +1,6 @@
 import { pipeline, env } from '@xenova/transformers';
 import { reorderToISLGrammar } from './avatarAssets';
+import { matchGoldenSequence } from './gestureClassifier';
 
 // Configure Transformers.js for browser environment
 if (env) {
@@ -90,6 +91,13 @@ export async function formulateGrammarSentence(keywords = []) {
 
   const cleanKeywords = keywords.map(k => String(k).trim()).filter(Boolean);
   if (cleanKeywords.length === 0) return '';
+
+  // Step 0: Intercept with Golden Demo Sequences (Highest Priority)
+  const golden = matchGoldenSequence(cleanKeywords);
+  if (golden) {
+    console.log(`[NLP] 🏆 Golden Demo Match (${golden.sequenceId}):`, golden.sentence);
+    return golden.sentence;
+  }
 
   // 1. Try Google Gemini API on backend first (Tier 1: Cloud Intelligence)
   try {

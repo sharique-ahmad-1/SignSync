@@ -32,7 +32,7 @@ import { MagneticButton, ShinyButton } from './ui/react-bits-micro';
 import { cn } from '../lib/utils';
 
 /**
- * Traverses any Rigged Hand 3D model scene and extracts standard hand & finger bones
+ * Traverses any Rigged Hand 3D model scene and extracts standard hand & finger bones (FBX, Mixamo, GLTF)
  */
 function extractHandSkeletonBones(root) {
   const bones = {
@@ -41,21 +41,23 @@ function extractHandSkeletonBones(root) {
   };
 
   root.traverse((node) => {
-    if (!node.isBone && node.type !== 'Bone' && node.type !== 'JOINT') return;
+    if (!node.isBone && node.type !== 'Bone' && node.type !== 'JOINT' && !node.name.toLowerCase().includes('hand') && !node.name.toLowerCase().includes('finger') && !node.name.toLowerCase().includes('thumb') && !node.name.toLowerCase().includes('index')) return;
     const name = (node.name || '').toLowerCase();
 
-    // Right Hand Bone Extraction
-    const isRight = name.includes('_r') || name.includes('.r') || name.includes('right') || name.includes('rhand');
+    // Right Hand vs Left Hand Bone Extraction
     const isLeft = name.includes('_l') || name.includes('.l') || name.includes('left') || name.includes('lhand');
-    const target = isLeft ? bones.left : bones.right;
+    const isRight = !isLeft || name.includes('_r') || name.includes('.r') || name.includes('right') || name.includes('rhand');
+    const target = (isLeft && !isRight) ? bones.left : bones.right;
 
-    if (name.includes('hand') || name.includes('wrist')) {
+    if (name.includes('wrist') || name.includes('righthand') || name.includes('lefthand') || name.endsWith('hand') || name.includes('hand_')) {
       if (!target.wrist) target.wrist = node;
-    } else if (name.includes('thumb')) {
+    }
+    
+    if (name.includes('thumb')) {
       target.thumb.push(node);
     } else if (name.includes('index')) {
       target.index.push(node);
-    } else if (name.includes('middle')) {
+    } else if (name.includes('mid') || name.includes('middle')) {
       target.middle.push(node);
     } else if (name.includes('ring')) {
       target.ring.push(node);
@@ -64,7 +66,7 @@ function extractHandSkeletonBones(root) {
     }
   });
 
-  // Sort finger bones by hierarchy/index
+  // Sort finger bones by hierarchy/index (e.g., RightHandIndex1, RightHandIndex2, RightHandIndex3)
   const sortBones = (arr) => arr.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   ['right', 'left'].forEach(side => {
     sortBones(bones[side].thumb);
@@ -227,37 +229,38 @@ export function MockAvatar({
     }
   }, []);
 
-  // Parse speech or text into ISL/ASL Gloss Sequence (Task 2 & 3)
+  // Parse speech or text into ISL/ASL Gloss Sequence (Task 1 Voice-to-3D-Hand Re-link)
   useEffect(() => {
     if (!transcribedText || !transcribedText.trim()) return;
     const cleanText = transcribedText.trim();
-    if (cleanText === lastProcessedTextRef.current) return;
 
     let isMounted = true;
     setIsNlpParsing(true);
 
-    const parseSequence = async () => {
-      // 1. Instant fallback parse using ISL SOV grammar rules
-      const immediateGlosses = parseTextToSignGlosses(cleanText);
-      if (isMounted && immediateGlosses.length > 0) {
-        lastProcessedTextRef.current = cleanText;
-        setActiveSequence(immediateGlosses);
-        setCurrentIndex(0);
-        setIsPlaying(true);
-        executeSignPose(immediateGlosses[0]);
-        preloadAvatarAssets(immediateGlosses);
-        if (onSignRecognized) {
-          onSignRecognized(immediateGlosses.map(g => g.keyword));
-        }
+    // 1. Instant synchronous parse using ISL SOV grammar rules (0ms latency response)
+    const immediateGlosses = parseTextToSignGlosses(cleanText);
+    if (immediateGlosses && immediateGlosses.length > 0) {
+      lastProcessedTextRef.current = cleanText;
+      setActiveSequence(immediateGlosses);
+      setCurrentIndex(0);
+      setIsPlaying(true);
+      executeSignPose(immediateGlosses[0]);
+      preloadAvatarAssets(immediateGlosses);
+      if (onSignRecognized) {
+        onSignRecognized(immediateGlosses.map(g => g.keyword));
       }
+    }
 
-      // 2. Refined keyword extraction via SmolLM2 model
+    // 2. Refined keyword extraction via SmolLM2 model
+    const parseSequence = async () => {
       try {
         const keywords = await extractISLKeywords(cleanText);
         if (isMounted && keywords && keywords.length > 0) {
           const refinedGlosses = parseTextToSignGlosses(keywords.join(' '));
-          if (refinedGlosses.length > 0) {
+          if (refinedGlosses && refinedGlosses.length > 0) {
             setActiveSequence(refinedGlosses);
+            setCurrentIndex(0);
+            executeSignPose(refinedGlosses[0]);
             preloadAvatarAssets(refinedGlosses);
           }
         }
@@ -400,37 +403,73 @@ export function MockAvatar({
 
     // 6. Production Model Loader for Rigged Hand.fbx / Rigged Hand.dae (Task 1)
     const loadRiggedHandFile = () => {
-      const colladaLoader = new ColladaLoader();
       const fbxLoader = new FBXLoader();
+      const colladaLoader = new ColladaLoader();
 
-      // Try loading Rigged Hand file from public folder
-      colladaLoader.load(
-        '/models/Rigged Hand.dae',
-        (collada) => {
-          console.log('[MockAvatar] Successfully loaded Rigged Hand DAE:', collada);
-          const model = collada.scene;
-          model.position.set(0, -0.4, 0);
-          model.scale.set(0.08, 0.08, 0.08);
+      // Load Rigged Hand FBX from public models
+      fbxLoader.load(
+        '/models/Rigged Hand.fbx',
+        (fbx) => {
+          console.log('[MockAvatar] Successfully loaded Rigged Hand FBX:', fbx);
+          fbx.position.set(0, -0.4, 0);
+          fbx.scale.set(0.008, 0.008, 0.008);
 
-          // Apply realistic lighting/materials to loaded mesh
-          model.traverse((child) => {
+          fbx.traverse((child) => {
             if (child.isMesh) {
               child.castShadow = true;
               child.receiveShadow = true;
             }
           });
 
-          const extractedBones = extractHandSkeletonBones(model);
-          if (extractedBones.right.thumb.length > 0 || extractedBones.left.thumb.length > 0) {
-            console.log('[MockAvatar] Extracted Rigged Hand skeleton bones:', extractedBones);
+          const extractedBones = extractHandSkeletonBones(fbx);
+          const totalFound = (extractedBones.right.index.length + extractedBones.right.thumb.length + extractedBones.left.index.length + extractedBones.left.thumb.length);
+          if (totalFound > 0) {
+            console.log('[MockAvatar] Extracted Rigged Hand FBX bones:', extractedBones);
             setModelType('Rigged Hand.fbx (3D Model)');
-            setMappedBoneCount(30);
+            setMappedBoneCount(Math.max(totalFound * 3, 30));
+            scene.add(fbx);
+            if (threeStateRef.current) {
+              threeStateRef.current.externalModel = fbx;
+              threeStateRef.current.externalBones = extractedBones;
+            }
           }
         },
         undefined,
-        (err) => {
-          console.log('[MockAvatar] Running with high-performance 3D Rigged Hands Engine.');
-          setModelType('3D Rigged Hands (ISL/ASL)');
+        (fbxErr) => {
+          console.log('[MockAvatar] Loading Rigged Hand DAE fallback:', fbxErr);
+          colladaLoader.load(
+            '/models/Rigged Hand.dae',
+            (collada) => {
+              console.log('[MockAvatar] Successfully loaded Rigged Hand DAE:', collada);
+              const model = collada.scene;
+              model.position.set(0, -0.4, 0);
+              model.scale.set(0.08, 0.08, 0.08);
+
+              model.traverse((child) => {
+                if (child.isMesh) {
+                  child.castShadow = true;
+                  child.receiveShadow = true;
+                }
+              });
+
+              const extractedBones = extractHandSkeletonBones(model);
+              if (extractedBones.right.thumb.length > 0 || extractedBones.left.thumb.length > 0) {
+                console.log('[MockAvatar] Extracted Rigged Hand skeleton bones:', extractedBones);
+                setModelType('Rigged Hand.dae (3D Model)');
+                setMappedBoneCount(30);
+                scene.add(model);
+                if (threeStateRef.current) {
+                  threeStateRef.current.externalModel = model;
+                  threeStateRef.current.externalBones = extractedBones;
+                }
+              }
+            },
+            undefined,
+            (err) => {
+              console.log('[MockAvatar] Running with high-performance 3D Rigged Hands Engine.');
+              setModelType('3D Rigged Hands (ISL/ASL)');
+            }
+          );
         }
       );
     };
@@ -448,7 +487,7 @@ export function MockAvatar({
 
       if (threeStateRef.current) {
         const state = threeStateRef.current;
-        const { controls, renderer, scene, camera, rightHand, leftHand } = state;
+        const { controls, renderer, scene, camera, rightHand, leftHand, externalBones } = state;
 
         controls.update();
 
@@ -614,6 +653,30 @@ export function MockAvatar({
             break;
           }
 
+          case 'EMERGENCY':
+          case 'DANGER': {
+            const shake = Math.sin(time * 8.0) * 0.3;
+            rWristPos = [0.4, 0.2, 0.3];
+            rWristRot = [0.2, 0.0, shake];
+            rCurls = [0.95, 0.95, 0.95, 0.95, 0.95];
+            lWristPos = [-0.4, 0.2, 0.3];
+            lWristRot = [0.2, 0.0, -shake];
+            lCurls = [0.95, 0.95, 0.95, 0.95, 0.95];
+            break;
+          }
+
+          case 'WHERE':
+          case 'WHAT': {
+            const sh = Math.sin(time * 5.0) * 0.2;
+            rWristPos = [0.45, 0.1, 0.25];
+            rWristRot = [-0.3, 0.1, sh];
+            rCurls = [0.2, 0.2, 0.2, 0.2, 0.2];
+            lWristPos = [-0.45, 0.1, 0.25];
+            lWristRot = [-0.3, -0.1, -sh];
+            lCurls = [0.2, 0.2, 0.2, 0.2, 0.2];
+            break;
+          }
+
           default: {
             // Dynamic pose interpolation from vocabulary metadata
             const shape = (activeSign.handShape || '').toLowerCase();
@@ -636,7 +699,7 @@ export function MockAvatar({
         // =========================================================================
         const lerpFactor = 1.0 - Math.exp(-delta * 14.0); // Fast, responsive, buttery smooth lerp
 
-        // Apply to Right Hand
+        // Apply to Procedural Right Hand
         if (rightHand && rightHand.bones) {
           const { wrist, thumb, index, middle, ring, pinky } = rightHand.bones;
           if (wrist) {
@@ -669,7 +732,7 @@ export function MockAvatar({
           applyCurls(pinky, rCurls[4]);
         }
 
-        // Apply to Left Hand
+        // Apply to Procedural Left Hand
         if (leftHand && leftHand.bones) {
           const { wrist, thumb, index, middle, ring, pinky } = leftHand.bones;
           if (wrist) {
@@ -700,6 +763,33 @@ export function MockAvatar({
           applyLeftCurls(middle, lCurls[2]);
           applyLeftCurls(ring, lCurls[3]);
           applyLeftCurls(pinky, lCurls[4]);
+        }
+
+        // Apply directly to FBX / Mixamo Skeleton Bones (Task 1 Direct FBX Articulation)
+        if (externalBones && externalBones.right) {
+          const extRight = externalBones.right;
+          if (extRight.wrist) {
+            extRight.wrist.rotation.x = THREE.MathUtils.lerp(extRight.wrist.rotation.x, rWristRot[0], lerpFactor);
+            extRight.wrist.rotation.y = THREE.MathUtils.lerp(extRight.wrist.rotation.y, rWristRot[1], lerpFactor);
+            extRight.wrist.rotation.z = THREE.MathUtils.lerp(extRight.wrist.rotation.z, rWristRot[2], lerpFactor);
+          }
+          const applyExtCurls = (chain, amount, isThumb = false) => {
+            chain.forEach((joint, idx) => {
+              if (joint) {
+                const angle = (isThumb ? 0.6 : 0.85) * amount;
+                joint.rotation.z = THREE.MathUtils.lerp(joint.rotation.z, angle, lerpFactor);
+                joint.rotation.x = THREE.MathUtils.lerp(joint.rotation.x, angle * 0.5, lerpFactor);
+                if (isThumb && idx === 0) {
+                  joint.rotation.y = THREE.MathUtils.lerp(joint.rotation.y, amount * 0.4, lerpFactor);
+                }
+              }
+            });
+          };
+          applyExtCurls(extRight.thumb, rCurls[0], true);
+          applyExtCurls(extRight.index, rCurls[1]);
+          applyExtCurls(extRight.middle, rCurls[2]);
+          applyExtCurls(extRight.ring, rCurls[3]);
+          applyExtCurls(extRight.pinky, rCurls[4]);
         }
 
         renderer.render(scene, camera);
