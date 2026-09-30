@@ -849,9 +849,24 @@ export const AVATAR_VOCABULARY = {
   }
 };
 
-// Common filler words ignored in ISL syntax
+// Common filler words ignored in ISL syntax (Phase 12: Massively expanded to prevent fingerspelling)
 const STOP_WORDS = new Set([
-  'is', 'am', 'are', 'was', 'were', 'the', 'a', 'an', 'and', 'to', 'of', 'in', 'on', 'at', 'it', 'be', 'do', 'does', 'did', 'so', 'can'
+  'is', 'am', 'are', 'was', 'were', 'the', 'a', 'an', 'and', 'to', 'of', 'in', 'on', 'at', 
+  'it', 'be', 'do', 'does', 'did', 'so', 'can', 'will', 'would', 'could', 'should', 'shall',
+  'has', 'have', 'had', 'been', 'being', 'for', 'with', 'from', 'by', 'or', 'but', 'nor',
+  'not', 'if', 'then', 'than', 'that', 'this', 'these', 'those', 'there', 'their', 'them',
+  'they', 'we', 'us', 'our', 'he', 'she', 'his', 'her', 'its', 'who', 'whom', 'whose',
+  'which', 'about', 'into', 'out', 'up', 'down', 'over', 'under', 'after', 'before',
+  'just', 'very', 'really', 'also', 'some', 'any', 'many', 'much', 'most', 'few',
+  'all', 'each', 'every', 'both', 'either', 'neither', 'here', 'now', 'well',
+  'like', 'get', 'got', 'go', 'going', 'went', 'come', 'came', 'let', 'make',
+  'made', 'take', 'took', 'give', 'gave', 'say', 'said', 'tell', 'told',
+  'know', 'knew', 'think', 'thought', 'see', 'saw', 'look', 'looked',
+  'im', 'youre', 'hes', 'shes', 'its', 'were', 'theyre',
+  'dont', 'doesnt', 'didnt', 'cant', 'wont', 'shouldnt', 'couldnt', 'wouldnt',
+  'able', 'might', 'may', 'must', 'still', 'while', 'too', 'only', 'own',
+  'same', 'other', 'another', 'such', 'even', 'back', 'way', 'long', 'right',
+  'because', 'through', 'between', 'around', 'during', 'without', 'again'
 ]);
 
 /**
@@ -915,8 +930,9 @@ export function parseTextToSignGlosses(rawText) {
         ...AVATAR_VOCABULARY[word],
         type: 'word'
       });
-    } else if (word.length <= 10) {
+    } else if (word.length > 3 && word.length <= 10) {
       // Fingerspelling fallback for names and unmapped words (e.g. "Sharique")
+      // Phase 12: Restricted to words > 3 chars to prevent spelling 'to', 'if', etc.
       for (const char of word) {
         if (/[a-z0-9]/i.test(char)) {
           matchedGlosses.push({

@@ -401,6 +401,7 @@ export function MockAvatar({
         // Dynamic ISL signing cycle oscillations (Task 2)
         const activeSign = currentSignRef.current;
         const activeCycle = activeSign?.cycle;
+        const activeGloss = (activeSign?.gloss || activeSign?.keyword || '').toUpperCase();
 
         let rRotX = targetRightRot[0];
         let rRotY = targetRightRot[1];
@@ -419,74 +420,212 @@ export function MockAvatar({
         let hRotX = targetHeadRot[0];
         let hRotY = targetHeadRot[1];
 
-        if (activeCycle) {
-          const osc = Math.sin(time * (activeCycle.freq || 4.0)) * (activeCycle.amp || 0.25);
-          if (activeCycle.joint === 'rightShoulder' || activeCycle.joint === 'both' || activeCycle.joint === 'rightArm') {
-            if (activeCycle.axis === 'x') rRotX += osc;
-            else if (activeCycle.axis === 'y') rRotY += osc;
-            else if (activeCycle.axis === 'z') rRotZ += osc;
-          }
-          if (activeCycle.joint === 'leftShoulder' || activeCycle.joint === 'both' || activeCycle.joint === 'leftArm') {
-            if (activeCycle.axis === 'x') lRotX += osc;
-            else if (activeCycle.axis === 'y') lRotY -= osc;
-            else if (activeCycle.axis === 'z') lRotZ -= osc;
-          }
-          if (activeCycle.joint === 'head') {
-            if (activeCycle.axis === 'x') hRotX += osc;
-            else if (activeCycle.axis === 'y') hRotY += osc;
-          }
-
-          if (activeCycle.secondary) {
-            const secOsc = Math.sin(time * (activeCycle.secondary.freq || 4.0)) * (activeCycle.secondary.amp || 0.2);
-            rElbX += secOsc;
-          }
+        // ============================================
+        // PHASE 12 FIX: Direct procedural animation overrides per gloss
+        // These bypass the stale-closure target system and directly compute
+        // mathematical bone rotations for guaranteed visible movement.
+        // ============================================
+        switch (activeGloss) {
+          case 'HELLO':
+          case 'NAMASTE':
+            rRotX = 1.1 + Math.sin(time * 5) * 0.35;
+            rRotZ = 0.5 + Math.sin(time * 4) * 0.4;
+            rElbX = -0.3 + Math.cos(time * 6) * 0.2;
+            hRotX = 0.1 + Math.sin(time * 2) * 0.08;
+            break;
+          case 'HELP':
+          case 'SAHAYATA':
+            rRotX = 0.6 + Math.sin(time * 3) * 0.3;
+            rRotZ = 0.5;
+            lRotX = 0.6 + Math.sin(time * 3 + 0.5) * 0.3;
+            lRotZ = -0.5;
+            rElbX = -0.5 + Math.sin(time * 2) * 0.15;
+            lElbX = -0.5 + Math.sin(time * 2 + 0.5) * 0.15;
+            hRotX = 0.2 + Math.sin(time * 1.5) * 0.1;
+            break;
+          case 'YES':
+          case 'HAAN':
+            rRotX = 0.65 + Math.sin(time * 4) * 0.2;
+            rRotZ = 0.45;
+            rElbX = -0.5 + Math.sin(time * 5) * 0.15;
+            hRotX = 0.25 + Math.sin(time * 5) * 0.2;
+            break;
+          case 'NO':
+          case 'NAHI':
+            rRotX = 0.7;
+            rRotZ = 0.4 + Math.sin(time * 6) * 0.15;
+            hRotY = Math.sin(time * 5) * 0.35;
+            break;
+          case 'STOP':
+          case 'RUKO':
+            rRotX = 0.8 + Math.sin(time * 2) * 0.05;
+            rRotZ = 0.5;
+            rElbX = -0.3;
+            hRotX = 0.05;
+            break;
+          case 'WATER':
+          case 'PAANI':
+            rRotX = 1.2 + Math.sin(time * 5) * 0.15;
+            rRotZ = 0.55;
+            rElbX = -0.9 + Math.sin(time * 6) * 0.1;
+            hRotX = Math.sin(time * 2) * 0.05;
+            break;
+          case 'FIRE':
+          case 'AANG':
+            rRotX = 1.0 + Math.sin(time * 7) * 0.2;
+            rRotZ = 0.55 + Math.cos(time * 5) * 0.15;
+            lRotX = 1.0 + Math.sin(time * 7 + 1) * 0.2;
+            lRotZ = -0.55 - Math.cos(time * 5 + 1) * 0.15;
+            rElbX = -0.5 + Math.sin(time * 8) * 0.1;
+            lElbX = -0.5 + Math.sin(time * 8 + 0.5) * 0.1;
+            hRotX = 0.1 + Math.sin(time * 3) * 0.08;
+            break;
+          case 'FOOD':
+          case 'KHANA':
+          case 'EAT':
+          case 'KHAO':
+            rRotX = 1.25 + Math.sin(time * 4) * 0.18;
+            rRotZ = 0.5;
+            rElbX = -0.85 + Math.sin(time * 5) * 0.12;
+            hRotX = 0.1 + Math.sin(time * 3) * 0.05;
+            break;
+          case 'DOCTOR':
+          case 'CHIKITSAK':
+            rRotX = 0.85 + Math.sin(time * 4) * 0.15;
+            rRotZ = 0.45;
+            rElbX = -0.7 + Math.sin(time * 5) * 0.1;
+            lRotX = 0.5;
+            lRotZ = -0.3;
+            break;
+          case 'EMERGENCY':
+          case 'AAPATKAAL':
+            rRotX = 1.15 + Math.sin(time * 6) * 0.3;
+            rRotZ = 0.55 + Math.cos(time * 7) * 0.2;
+            hRotX = 0.1 + Math.sin(time * 4) * 0.12;
+            break;
+          case 'POLICE':
+          case 'PULIS':
+            rRotX = 0.7 + Math.sin(time * 3) * 0.15;
+            rRotZ = 0.4;
+            rElbX = -0.6 + Math.sin(time * 4) * 0.1;
+            hRotX = 0.05;
+            break;
+          case 'DANGER':
+          case 'KHATARA':
+            rRotX = 0.9 + Math.sin(time * 5) * 0.25;
+            rRotZ = 0.5;
+            lRotX = 0.9 + Math.sin(time * 5 + 0.8) * 0.25;
+            lRotZ = -0.5;
+            hRotX = 0.1 + Math.sin(time * 3) * 0.1;
+            break;
+          default:
+            // For all other glosses, use the cycle-based oscillation system
+            if (activeCycle) {
+              const osc = Math.sin(time * (activeCycle.freq || 4.0)) * (activeCycle.amp || 0.25);
+              if (activeCycle.joint === 'rightShoulder' || activeCycle.joint === 'both' || activeCycle.joint === 'rightArm') {
+                if (activeCycle.axis === 'x') rRotX += osc;
+                else if (activeCycle.axis === 'y') rRotY += osc;
+                else if (activeCycle.axis === 'z') rRotZ += osc;
+              }
+              if (activeCycle.joint === 'leftShoulder' || activeCycle.joint === 'both' || activeCycle.joint === 'leftArm') {
+                if (activeCycle.axis === 'x') lRotX += osc;
+                else if (activeCycle.axis === 'y') lRotY -= osc;
+                else if (activeCycle.axis === 'z') lRotZ -= osc;
+              }
+              if (activeCycle.joint === 'head') {
+                if (activeCycle.axis === 'x') hRotX += osc;
+                else if (activeCycle.axis === 'y') hRotY += osc;
+              }
+              if (activeCycle.secondary) {
+                const secOsc = Math.sin(time * (activeCycle.secondary.freq || 4.0)) * (activeCycle.secondary.amp || 0.2);
+                rElbX += secOsc;
+              }
+            }
+            break;
         }
 
         // Apply smooth interpolation towards posture + signing cycles
-        rightShoulder.rotation.x = THREE.MathUtils.lerp(rightShoulder.rotation.x, rRotX, 0.12);
-        rightShoulder.rotation.y = THREE.MathUtils.lerp(rightShoulder.rotation.y, rRotY, 0.12);
-        rightShoulder.rotation.z = THREE.MathUtils.lerp(rightShoulder.rotation.z, rRotZ, 0.12);
+        // Phase 12: Increased lerp from 0.12 to 0.22 for snappier, visible movement
+        const lerpSpeed = 0.22;
+        rightShoulder.rotation.x = THREE.MathUtils.lerp(rightShoulder.rotation.x, rRotX, lerpSpeed);
+        rightShoulder.rotation.y = THREE.MathUtils.lerp(rightShoulder.rotation.y, rRotY, lerpSpeed);
+        rightShoulder.rotation.z = THREE.MathUtils.lerp(rightShoulder.rotation.z, rRotZ, lerpSpeed);
 
         if (rightElbow) {
-          rightElbow.rotation.x = THREE.MathUtils.lerp(rightElbow.rotation.x, rElbX, 0.12);
-          rightElbow.rotation.y = THREE.MathUtils.lerp(rightElbow.rotation.y, rElbY, 0.12);
-          rightElbow.rotation.z = THREE.MathUtils.lerp(rightElbow.rotation.z, rElbZ, 0.12);
+          rightElbow.rotation.x = THREE.MathUtils.lerp(rightElbow.rotation.x, rElbX, lerpSpeed);
+          rightElbow.rotation.y = THREE.MathUtils.lerp(rightElbow.rotation.y, rElbY, lerpSpeed);
+          rightElbow.rotation.z = THREE.MathUtils.lerp(rightElbow.rotation.z, rElbZ, lerpSpeed);
         }
 
-        leftShoulder.rotation.x = THREE.MathUtils.lerp(leftShoulder.rotation.x, lRotX, 0.12);
-        leftShoulder.rotation.y = THREE.MathUtils.lerp(leftShoulder.rotation.y, lRotY, 0.12);
-        leftShoulder.rotation.z = THREE.MathUtils.lerp(leftShoulder.rotation.z, lRotZ, 0.12);
+        leftShoulder.rotation.x = THREE.MathUtils.lerp(leftShoulder.rotation.x, lRotX, lerpSpeed);
+        leftShoulder.rotation.y = THREE.MathUtils.lerp(leftShoulder.rotation.y, lRotY, lerpSpeed);
+        leftShoulder.rotation.z = THREE.MathUtils.lerp(leftShoulder.rotation.z, lRotZ, lerpSpeed);
 
         if (leftElbow) {
-          leftElbow.rotation.x = THREE.MathUtils.lerp(leftElbow.rotation.x, lElbX, 0.12);
-          leftElbow.rotation.y = THREE.MathUtils.lerp(leftElbow.rotation.y, lElbY, 0.12);
-          leftElbow.rotation.z = THREE.MathUtils.lerp(leftElbow.rotation.z, lElbZ, 0.12);
+          leftElbow.rotation.x = THREE.MathUtils.lerp(leftElbow.rotation.x, lElbX, lerpSpeed);
+          leftElbow.rotation.y = THREE.MathUtils.lerp(leftElbow.rotation.y, lElbY, lerpSpeed);
+          leftElbow.rotation.z = THREE.MathUtils.lerp(leftElbow.rotation.z, lElbZ, lerpSpeed);
         }
 
-        head.rotation.x = THREE.MathUtils.lerp(head.rotation.x, hRotX, 0.12);
-        head.rotation.y = THREE.MathUtils.lerp(head.rotation.y, hRotY, 0.12);
+        head.rotation.x = THREE.MathUtils.lerp(head.rotation.x, hRotX, lerpSpeed);
+        head.rotation.y = THREE.MathUtils.lerp(head.rotation.y, hRotY, lerpSpeed);
+
+        // Phase 12 FIX: Hand glow pulse synced to animation
+        if (rightHand && rightHand.material) {
+          const pulseIntensity = 0.5 + Math.sin(time * 4) * 0.3;
+          rightHand.material.emissive = rightHand.material.emissive || new THREE.Color();
+          rightHand.material.emissive.setHex(0x38bdf8);
+          rightHand.material.emissiveIntensity = pulseIntensity;
+        }
+        if (leftHand && leftHand.material) {
+          const pulseIntensity = 0.3 + Math.sin(time * 4 + 1) * 0.2;
+          leftHand.material.emissive = leftHand.material.emissive || new THREE.Color();
+          leftHand.material.emissive.setHex(0x38bdf8);
+          leftHand.material.emissiveIntensity = pulseIntensity;
+        }
 
         // If custom bones exist (e.g. from Verity model)
         if (customBones.rightArm) {
-          customBones.rightArm.rotation.x = THREE.MathUtils.lerp(customBones.rightArm.rotation.x, rRotX, 0.12);
-          customBones.rightArm.rotation.y = THREE.MathUtils.lerp(customBones.rightArm.rotation.y, rRotY, 0.12);
-          customBones.rightArm.rotation.z = THREE.MathUtils.lerp(customBones.rightArm.rotation.z, rRotZ, 0.12);
+          customBones.rightArm.rotation.x = THREE.MathUtils.lerp(customBones.rightArm.rotation.x, rRotX, lerpSpeed);
+          customBones.rightArm.rotation.y = THREE.MathUtils.lerp(customBones.rightArm.rotation.y, rRotY, lerpSpeed);
+          customBones.rightArm.rotation.z = THREE.MathUtils.lerp(customBones.rightArm.rotation.z, rRotZ, lerpSpeed);
         }
         if (customBones.rightForearm && rightElbow) {
-          customBones.rightForearm.rotation.x = THREE.MathUtils.lerp(customBones.rightForearm.rotation.x, rElbX, 0.12);
+          customBones.rightForearm.rotation.x = THREE.MathUtils.lerp(customBones.rightForearm.rotation.x, rElbX, lerpSpeed);
         }
         if (customBones.leftArm) {
-          customBones.leftArm.rotation.x = THREE.MathUtils.lerp(customBones.leftArm.rotation.x, lRotX, 0.12);
-          customBones.leftArm.rotation.y = THREE.MathUtils.lerp(customBones.leftArm.rotation.y, lRotY, 0.12);
-          customBones.leftArm.rotation.z = THREE.MathUtils.lerp(customBones.leftArm.rotation.z, lRotZ, 0.12);
+          customBones.leftArm.rotation.x = THREE.MathUtils.lerp(customBones.leftArm.rotation.x, lRotX, lerpSpeed);
+          customBones.leftArm.rotation.y = THREE.MathUtils.lerp(customBones.leftArm.rotation.y, lRotY, lerpSpeed);
+          customBones.leftArm.rotation.z = THREE.MathUtils.lerp(customBones.leftArm.rotation.z, lRotZ, lerpSpeed);
         }
         if (customBones.leftForearm && leftElbow) {
-          customBones.leftForearm.rotation.x = THREE.MathUtils.lerp(customBones.leftForearm.rotation.x, lElbX, 0.12);
+          customBones.leftForearm.rotation.x = THREE.MathUtils.lerp(customBones.leftForearm.rotation.x, lElbX, lerpSpeed);
         }
         if (customBones.head) {
-          customBones.head.rotation.x = THREE.MathUtils.lerp(customBones.head.rotation.x, hRotX, 0.12);
-          customBones.head.rotation.y = THREE.MathUtils.lerp(customBones.head.rotation.y, hRotY, 0.12);
+          customBones.head.rotation.x = THREE.MathUtils.lerp(customBones.head.rotation.x, hRotX, lerpSpeed);
+          customBones.head.rotation.y = THREE.MathUtils.lerp(customBones.head.rotation.y, hRotY, lerpSpeed);
         }
+
+        // Phase 12: Procedural finger articulation for standard signs
+        // Default: flat open hand (0 rot)
+        let fingerCurl = 0.0; 
+        if (['YES', 'HAAN', 'DANGER'].includes(activeGloss)) {
+          fingerCurl = 1.2; // Closed fist
+        } else if (['HELP', 'NO'].includes(activeGloss)) {
+          fingerCurl = 0.6; // Partial curl
+        } else if (['WATER', 'DRINK'].includes(activeGloss)) {
+          fingerCurl = 0.3; // Cup shape
+        }
+
+        const fingerLerp = 0.25;
+        if (customBones.rIndex) customBones.rIndex.rotation.z = THREE.MathUtils.lerp(customBones.rIndex.rotation.z, fingerCurl, fingerLerp);
+        if (customBones.rMiddle) customBones.rMiddle.rotation.z = THREE.MathUtils.lerp(customBones.rMiddle.rotation.z, fingerCurl, fingerLerp);
+        if (customBones.rRing) customBones.rRing.rotation.z = THREE.MathUtils.lerp(customBones.rRing.rotation.z, fingerCurl, fingerLerp);
+        if (customBones.rPinky) customBones.rPinky.rotation.z = THREE.MathUtils.lerp(customBones.rPinky.rotation.z, fingerCurl, fingerLerp);
+        if (customBones.rThumb) customBones.rThumb.rotation.y = THREE.MathUtils.lerp(customBones.rThumb.rotation.y, fingerCurl * 0.5, fingerLerp);
+        
+        if (customBones.lIndex) customBones.lIndex.rotation.z = THREE.MathUtils.lerp(customBones.lIndex.rotation.z, fingerCurl, fingerLerp);
+        if (customBones.lMiddle) customBones.lMiddle.rotation.z = THREE.MathUtils.lerp(customBones.lMiddle.rotation.z, fingerCurl, fingerLerp);
 
         renderer.render(scene, camera);
       }
@@ -554,6 +693,17 @@ export function MockAvatar({
         } else if (name.includes('head') || name.includes('neck')) {
           bones.head = child;
         }
+        
+        // Phase 12: Explicitly capture standard finger bones for articulation
+        if (name.includes('righthandindex') || name.includes('right_index')) bones.rIndex = child;
+        if (name.includes('righthandthumb') || name.includes('right_thumb')) bones.rThumb = child;
+        if (name.includes('righthandmiddle') || name.includes('right_middle')) bones.rMiddle = child;
+        if (name.includes('righthandring') || name.includes('right_ring')) bones.rRing = child;
+        if (name.includes('righthandpinky') || name.includes('right_pinky')) bones.rPinky = child;
+        
+        if (name.includes('lefthandindex') || name.includes('left_index')) bones.lIndex = child;
+        if (name.includes('lefthandthumb') || name.includes('left_thumb')) bones.lThumb = child;
+        if (name.includes('lefthandmiddle') || name.includes('left_middle')) bones.lMiddle = child;
       }
     });
 
@@ -807,14 +957,19 @@ export function MockAvatar({
             )}
           />
 
-          {/* Dual Mode: Picture-in-Picture Floating Sign Demo Inset */}
+          {/* Dual Mode: Picture-in-Picture Floating Sign Demo Inset (Phase 12: Enlarged for demo) */}
           {renderMode === 'dual' && currentSign.videoUrl && (
-            <div className="absolute bottom-16 right-2 sm:right-3 z-20 w-28 sm:w-36 md:w-40 bg-slate-950/90 backdrop-blur-md rounded-2xl border border-indigo-500/40 p-1.5 sm:p-2 shadow-2xl flex flex-col items-center animate-fadeIn pointer-events-auto">
+            <div className="absolute bottom-16 right-2 sm:right-3 z-20 w-40 sm:w-48 md:w-56 bg-slate-950/90 backdrop-blur-md rounded-2xl border border-indigo-500/40 p-1.5 sm:p-2 shadow-2xl flex flex-col items-center animate-fadeIn pointer-events-auto">
               <div className="flex items-center justify-between w-full pb-1 mb-1 border-b border-slate-800 text-[10px]">
                 <span className="font-semibold text-cyan-300 text-[9px] sm:text-[10px]">ISL Sign Demo</span>
-                <span className="text-[9px] font-mono text-emerald-400">HD GIF</span>
+                <button
+                  onClick={() => setRenderMode('video')}
+                  className="text-[9px] font-mono text-emerald-400 hover:text-white bg-emerald-500/20 hover:bg-emerald-500/40 px-1.5 py-0.5 rounded-md border border-emerald-500/30 transition-all cursor-pointer"
+                >
+                  ⬆ Expand Full
+                </button>
               </div>
-              <div className="w-full h-16 sm:h-20 md:h-24 overflow-hidden rounded-xl bg-black flex items-center justify-center">
+              <div className="w-full h-24 sm:h-28 md:h-32 overflow-hidden rounded-xl bg-black flex items-center justify-center">
                 <img
                   key={currentSign.videoUrl}
                   src={currentSign.videoUrl}
@@ -828,17 +983,25 @@ export function MockAvatar({
             </div>
           )}
 
-          {/* Mode: Video Only Stage */}
+          {/* Mode: Video Only Stage (Phase 12: Expanded to fill full container) */}
           {renderMode === 'video' && (
-            <div className="relative w-56 sm:w-64 h-56 sm:h-64 flex flex-col items-center justify-center p-3 animate-fadeIn">
+            <div className="relative w-full h-full flex flex-col items-center justify-center p-3 animate-fadeIn">
               <img
                 key={currentSign.videoUrl}
                 src={currentSign.videoUrl || 'https://media.giphy.com/media/dzaUX7CAG0Ihi/giphy.gif'}
                 alt={`ISL Sign for ${currentSign.label}`}
-                className="w-full h-full object-contain rounded-2xl shadow-xl border border-cyan-500/30"
+                className="w-full h-full max-h-[320px] object-contain rounded-2xl shadow-xl border-2 border-cyan-500/40"
               />
-              <div className="mt-2 text-xs text-cyan-300 font-semibold">
-                {currentSign.handShape || 'ISL Standard Gesture'}
+              <div className="mt-2 flex items-center gap-3">
+                <span className="text-sm text-cyan-300 font-semibold">
+                  {currentSign.handShape || 'ISL Standard Gesture'}
+                </span>
+                <button
+                  onClick={() => setRenderMode('dual')}
+                  className="text-[10px] px-2 py-0.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 transition-all cursor-pointer border border-indigo-400"
+                >
+                  Show 3D + Video
+                </button>
               </div>
             </div>
           )}
