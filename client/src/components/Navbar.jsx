@@ -16,10 +16,11 @@ import { cn } from '../lib/utils';
 export function Navbar({ 
   viewMode, 
   setViewMode, 
+  signLanguageMode = 'ISL',
+  setSignLanguageMode,
   serverStatus, 
   mediaPipeReady, 
-  isListening, 
-  onOpenStatusModal 
+  isListening
 }) {
   const tabs = [
     {
@@ -40,8 +41,8 @@ export function Navbar({
   ];
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-slate-800/80 bg-[#080B14]/85 backdrop-blur-xl px-4 lg:px-8 py-2.5 transition-colors shadow-2xl">
-      <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+    <header className="sticky top-0 z-40 w-full border-b border-slate-800/80 bg-[#080B14]/85 backdrop-blur-xl px-3 sm:px-6 py-2.5 transition-colors shadow-2xl">
+      <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
         
         {/* Brand & Mission */}
         <div className="flex items-center gap-3">
@@ -56,29 +57,25 @@ export function Navbar({
                 SignSync
               </h1>
               <span className="px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                Phase 2 • AI & 3D
+                Phase 5 • ISL & ASL
               </span>
             </div>
             <p className="text-xs text-slate-400 hidden sm:block">
-              Two-Way Communicator: MediaPipe ↔ SmolLM2 NLP ↔ 3D ISL Avatar
+              Two-Way Communicator: MediaPipe ↔ SmolLM2 NLP ↔ 3D {signLanguageMode} Avatar
             </p>
           </div>
         </div>
 
         {/* Live System Diagnostics Badges with Lottie & Icons */}
-        <div className="hidden md:flex items-center gap-2 bg-slate-900/70 p-1 rounded-2xl border border-slate-800 text-xs shadow-inner">
+        <div className="hidden lg:flex items-center gap-2 bg-slate-900/70 p-1 rounded-2xl border border-slate-800 text-xs shadow-inner">
           
           {/* Backend Status */}
-          <div 
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl transition-colors cursor-pointer hover:bg-slate-800/60"
-            onClick={onOpenStatusModal}
-            title="Express API Status"
-          >
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl">
             <Server className="h-3.5 w-3.5 text-slate-400" />
             <span className="text-slate-300">API:</span>
-            <span className={cn("flex items-center gap-1 font-medium", serverStatus.online ? 'text-emerald-400' : 'text-amber-400')}>
-              <span className={cn("h-1.5 w-1.5 rounded-full", serverStatus.online ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400')} />
-              {serverStatus.online ? 'Online' : 'Checking'}
+            <span className={cn("flex items-center gap-1 font-medium", serverStatus?.online ? 'text-emerald-400' : 'text-amber-400')}>
+              <span className={cn("h-1.5 w-1.5 rounded-full", serverStatus?.online ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400')} />
+              {serverStatus?.online ? 'Online' : 'Checking'}
             </span>
           </div>
 
@@ -121,23 +118,45 @@ export function Navbar({
           </div>
         </div>
 
-        {/* Aceternity UI: Animated Tabs for View Switcher */}
+        {/* Right Section: ISL/ASL Dual Detection Switcher + View Mode Tabs */}
         <div className="flex items-center gap-2">
+          
+          {/* ISL vs ASL Dual Sign Language Toggle Switch (Task 2) */}
+          <div className="flex items-center bg-slate-950 p-0.5 rounded-xl border border-slate-800 text-xs font-semibold shadow-inner">
+            <button
+              onClick={() => setSignLanguageMode && setSignLanguageMode('ISL')}
+              className={cn(
+                "flex items-center gap-1 px-2.5 py-1 rounded-lg transition-all cursor-pointer",
+                signLanguageMode === 'ISL'
+                  ? "bg-gradient-to-r from-amber-600 to-emerald-600 text-white shadow-md font-bold"
+                  : "text-slate-400 hover:text-slate-200"
+              )}
+              title="Switch to Indian Sign Language (ISL)"
+            >
+              <span className="text-xs">🇮🇳</span>
+              <span>ISL</span>
+            </button>
+            <button
+              onClick={() => setSignLanguageMode && setSignLanguageMode('ASL')}
+              className={cn(
+                "flex items-center gap-1 px-2.5 py-1 rounded-lg transition-all cursor-pointer",
+                signLanguageMode === 'ASL'
+                  ? "bg-gradient-to-r from-indigo-600 to-cyan-600 text-white shadow-md font-bold"
+                  : "text-slate-400 hover:text-slate-200"
+              )}
+              title="Switch to American Sign Language (ASL)"
+            >
+              <span className="text-xs">🇺🇸</span>
+              <span>ASL</span>
+            </button>
+          </div>
+
+          {/* Aceternity UI: Animated Tabs for View Switcher */}
           <AnimatedTabs
             tabs={tabs}
             activeTab={viewMode}
             onChange={setViewMode}
           />
-
-          {/* Account Modal Button */}
-          <button
-            onClick={onOpenStatusModal}
-            className="p-2 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white transition-all shadow-md relative"
-            title="Connected Accounts (GitHub, Render, Supabase)"
-          >
-            <ShieldCheck className="h-4 w-4 text-indigo-400" />
-            <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-emerald-400" />
-          </button>
         </div>
 
       </div>

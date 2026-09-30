@@ -4,25 +4,24 @@ import { Navbar } from './components/Navbar';
 import { DeafView } from './components/DeafView';
 import { HearingView } from './components/HearingView';
 import { ConversationLog } from './components/ConversationLog';
-import { ConnectionStatusModal } from './components/ConnectionStatusModal';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function App() {
   const [viewMode, setViewMode] = useState('split'); // 'split' | 'deaf' | 'hearing'
+  const [signLanguageMode, setSignLanguageMode] = useState('ISL'); // 'ISL' | 'ASL' (Task 2)
   const [serverStatus, setServerStatus] = useState({ online: false, data: null });
   const [mediaPipeReady, setMediaPipeReady] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isHearingSpeaking, setIsHearingSpeaking] = useState(false);
   const [lastHearingTranscript, setLastHearingTranscript] = useState('');
   const [repeatTrigger, setRepeatTrigger] = useState(0);
-  const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
 
   // Conversation history
   const [messages, setMessages] = useState([
     {
       id: 'welcome-1',
       sender: 'hearing',
-      text: 'Welcome to SignSync Phase 2! Voice speech will translate to 3D Avatar ISL signs, and hand signs can be formulated into speech via SmolLM2.',
+      text: 'Welcome to SignSync Phase 5! Switch between ISL and ASL in the top navbar. Real-time gestures map to text and speech seamlessly.',
       timestamp: new Date().toISOString()
     }
   ]);
@@ -131,20 +130,21 @@ export default function App() {
   return (
     <AuroraBackground className="min-h-screen">
       
-      {/* Top Navigation */}
+      {/* Top Navigation with ISL/ASL Dual Detection Switcher */}
       <Navbar
         viewMode={viewMode}
         setViewMode={setViewMode}
+        signLanguageMode={signLanguageMode}
+        setSignLanguageMode={setSignLanguageMode}
         serverStatus={serverStatus}
         mediaPipeReady={mediaPipeReady}
         isListening={isListening}
-        onOpenStatusModal={() => setIsStatusModalOpen(true)}
       />
 
-      {/* Main Split-Screen Workspace with Animated Layout Transitions */}
-      <main className="flex-1 flex flex-col overflow-hidden max-w-[1640px] w-full mx-auto p-2 sm:p-4 gap-3">
+      {/* Main Responsive Split-Screen Workspace */}
+      <main className="flex-1 flex flex-col overflow-y-auto max-w-[1640px] w-full mx-auto p-2 sm:p-4 gap-3">
         
-        {/* Top Half: Deaf User View (Webcam + MediaPipe + Glowing Effect + 3D Cards + SmolLM2) */}
+        {/* Top Half: Deaf User View (Webcam + MediaPipe + Dual Gesture Detection + SmolLM2) */}
         {(viewMode === 'split' || viewMode === 'deaf') && (
           <motion.div 
             layout
@@ -153,10 +153,11 @@ export default function App() {
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.3 }}
             className={`rounded-2xl overflow-hidden border border-slate-800/80 shadow-2xl backdrop-blur-md bg-slate-950/60 transition-all duration-300 ${
-              viewMode === 'deaf' ? 'flex-1 h-full' : 'flex-1'
+              viewMode === 'deaf' ? 'flex-1 h-full' : 'flex-1 min-h-[360px]'
             }`}
           >
             <DeafView
+              signLanguageMode={signLanguageMode}
               onSendAction={handleDeafAction}
               lastHearingTranscript={lastHearingTranscript}
               isHearingSpeaking={isHearingSpeaking}
@@ -165,7 +166,7 @@ export default function App() {
           </motion.div>
         )}
 
-        {/* Bottom Half: Hearing User View (Speech-to-Text + TextGenerateEffect + 3D Avatar) */}
+        {/* Bottom Half: Hearing User View (Speech-to-Text + 3D Avatar + ISL/ASL Gloss Sequence) */}
         {(viewMode === 'split' || viewMode === 'hearing') && (
           <motion.div 
             layout
@@ -174,10 +175,11 @@ export default function App() {
             exit={{ opacity: 0, y: 10 }}
             transition={{ duration: 0.3 }}
             className={`rounded-2xl overflow-hidden border border-slate-800/80 shadow-2xl backdrop-blur-md bg-slate-950/60 transition-all duration-300 ${
-              viewMode === 'hearing' ? 'flex-1 h-full' : 'flex-1'
+              viewMode === 'hearing' ? 'flex-1 h-full' : 'flex-1 min-h-[360px]'
             }`}
           >
             <HearingView
+              signLanguageMode={signLanguageMode}
               onSpeechTranscribed={handleSpeechTranscribed}
               isListening={isListening}
               setIsListening={setIsListening}
@@ -191,13 +193,6 @@ export default function App() {
 
       {/* Bottom Conversation Transcript Log */}
       <ConversationLog messages={messages} />
-
-      {/* Account Connection Status Modal */}
-      <ConnectionStatusModal
-        isOpen={isStatusModalOpen}
-        onClose={() => setIsStatusModalOpen(false)}
-        serverStatus={serverStatus}
-      />
 
     </AuroraBackground>
   );
